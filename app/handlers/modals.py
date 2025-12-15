@@ -2,14 +2,30 @@
 from slack_bolt.async_app import AsyncApp
 from sqlalchemy import select
 from app.slack_client import slack_app, get_slack_client
-from app.database import AsyncSessionLocal
+from app.database import SessionLocal
 from app.models import Announcement
 from app.views.blocks import build_announcement_message
+
+
+def save_announcement_to_db(channel_id, channel_name, title, content, sender_id, message_ts):
+    """Save announcement to database."""
+    with SessionLocal() as session:
+        announcement = Announcement(
+            channel_id=channel_id,
+            channel_name=channel_name,
+            title=title,
+            content=content,
+            sender_id=sender_id,
+            message_ts=message_ts
+        )
+        session.add(announcement)
+        session.commit()
 
 
 @slack_app.view("announcement_modal")
 async def handle_announcement_submission(ack, body, client, view):
     """Handle announcement modal submission."""
+    # Acknowledge immediately
     await ack()
 
     # Extract form values
@@ -52,8 +68,8 @@ async def handle_announcement_submission(ack, body, client, view):
     message_ts = result["ts"]
 
     # Save announcement to database
-    async with AsyncSessionLocal() as session:
-        announcement = Announcement(
+    try:
+        save_announcement_to_db(
             channel_id=channel_id,
             channel_name=channel_name,
             title=title,
@@ -61,8 +77,9 @@ async def handle_announcement_submission(ack, body, client, view):
             sender_id=sender_id,
             message_ts=message_ts
         )
-        session.add(announcement)
-        await session.commit()
+    except Exception as e:
+        print(f"Error saving announcement to database: {e}")
+        # Continue even if database save fails
 
     # Send confirmation DM to sender
     await client.chat_postMessage(

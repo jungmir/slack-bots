@@ -2,7 +2,7 @@
 from slack_bolt.async_app import AsyncApp
 from sqlalchemy import select
 from app.slack_client import slack_app
-from app.database import AsyncSessionLocal
+from app.database import SessionLocal
 from app.models import Announcement, ReadReceipt
 
 
@@ -19,9 +19,9 @@ async def handle_confirm_announcement(ack, body, client, action):
     user_info = await client.users_info(user=user_id)
     user_name = user_info["user"]["real_name"] or user_info["user"]["name"]
 
-    async with AsyncSessionLocal() as session:
+    with SessionLocal() as session:
         # Find announcement by message timestamp
-        result = await session.execute(
+        result = session.execute(
             select(Announcement).where(Announcement.message_ts == message_ts)
         )
         announcement = result.scalar_one_or_none()
@@ -35,7 +35,7 @@ async def handle_confirm_announcement(ack, body, client, action):
             return
 
         # Check if user already confirmed
-        existing_receipt = await session.execute(
+        existing_receipt = session.execute(
             select(ReadReceipt).where(
                 ReadReceipt.announcement_id == announcement.id,
                 ReadReceipt.user_id == user_id
@@ -58,7 +58,7 @@ async def handle_confirm_announcement(ack, body, client, action):
                 user_name=user_name
             )
             session.add(receipt)
-            await session.commit()
+            session.commit()
 
             # Send confirmation
             await client.chat_postEphemeral(

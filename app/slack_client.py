@@ -7,6 +7,7 @@ from app.config import settings
 slack_app = AsyncApp(
     token=settings.SLACK_BOT_TOKEN,
     signing_secret=settings.SLACK_SIGNING_SECRET,
+    process_before_response=True,  # Process all async operations before responding
 )
 
 

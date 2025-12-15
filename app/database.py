@@ -1,6 +1,6 @@
 """Database configuration and session management."""
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy import create_engine
+from sqlalchemy.orm import DeclarativeBase, sessionmaker, Session
 from app.config import settings
 
 
@@ -9,37 +9,38 @@ class Base(DeclarativeBase):
     pass
 
 
-# Create async engine
-engine = create_async_engine(
-    settings.DATABASE_URL,
+# Convert async URL to sync URL for SQLite
+database_url = settings.DATABASE_URL.replace("sqlite+aiosqlite://", "sqlite:///")
+
+# Create sync engine
+engine = create_engine(
+    database_url,
     echo=settings.DEBUG,
-    future=True,
-    connect_args={"check_same_thread": False} if "sqlite" in settings.DATABASE_URL else {},
+    connect_args={"check_same_thread": False} if "sqlite" in database_url else {},
     pool_pre_ping=True,
 )
 
-# Create async session factory
-AsyncSessionLocal = async_sessionmaker(
+# Create sync session factory
+SessionLocal = sessionmaker(
     engine,
-    class_=AsyncSession,
+    class_=Session,
     expire_on_commit=False,
 )
 
 
-async def init_db():
+def init_db():
     """Initialize database tables."""
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    Base.metadata.create_all(bind=engine)
 
 
-async def get_db() -> AsyncSession:
-    """Dependency for getting database session."""
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
-        finally:
-            await session.close()
+def get_db() -> Session:
+    """Get database session."""
+    db = SessionLocal()
+    try:
+        yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()

@@ -1,6 +1,6 @@
 """Reminder service for sending DMs to unread users."""
 from sqlalchemy import select
-from app.database import AsyncSessionLocal
+from app.database import SessionLocal
 from app.models import Announcement, ReadReceipt
 from app.slack_client import get_slack_client
 
@@ -18,9 +18,9 @@ async def send_reminder_to_unread_users(announcement_id: int) -> dict:
     success_count = 0
     error_count = 0
 
-    async with AsyncSessionLocal() as session:
+    with SessionLocal() as session:
         # Get announcement
-        result = await session.execute(
+        result = session.execute(
             select(Announcement).where(Announcement.id == announcement_id)
         )
         announcement = result.scalar_one_or_none()

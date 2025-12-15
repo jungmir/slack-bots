@@ -12,7 +12,7 @@ from app import handlers  # noqa: F401 - Import to register handlers
 async def lifespan(app: FastAPI):
     """Application lifespan events."""
     # Startup
-    await init_db()
+    init_db()
     yield
     # Shutdown
     pass

@@ -2,7 +2,7 @@
 from slack_bolt.async_app import AsyncApp
 from sqlalchemy import select
 from app.slack_client import slack_app
-from app.database import AsyncSessionLocal
+from app.database import SessionLocal
 from app.models import Announcement, ReadReceipt
 from app.views.home import build_home_view
 
@@ -13,9 +13,9 @@ async def handle_app_home_opened(event, client):
     user_id = event["user"]
 
     # Fetch announcements with read receipt counts
-    async with AsyncSessionLocal() as session:
+    with SessionLocal() as session:
         # Get all announcements ordered by created_at desc
-        result = await session.execute(
+        result = session.execute(
             select(Announcement).order_by(Announcement.created_at.desc())
         )
         announcements = result.scalars().all()
@@ -68,8 +68,8 @@ async def handle_view_announcement_details(ack, body, client, action):
 
     announcement_id = int(action["value"])
 
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(
+    with SessionLocal() as session:
+        result = session.execute(
             select(Announcement).where(Announcement.id == announcement_id)
         )
         announcement = result.scalar_one_or_none()
