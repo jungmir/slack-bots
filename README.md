@@ -51,7 +51,11 @@ SLACK_APP_TOKEN=xapp-your-app-token
    - `chat:write` - Post messages
    - `im:write` - Send DMs
    - `channels:read` - List channels
+   - `channels:join` - Join public channels
    - `users:read` - Get user information
+   - `channels:history` - Read channel messages
+   - `groups:read` - Access private channels info
+   - `groups:write` - Manage private channels (optional)
    - `conversations.members:read` - Read channel members
 
 3. Enable Event Subscriptions:

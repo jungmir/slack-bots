@@ -32,6 +32,14 @@ async def handle_announcement_submission(ack, body, client, view):
     channel_info = await client.conversations_info(channel=channel_id)
     channel_name = channel_info["channel"]["name"]
 
+    # Try to join the channel if it's a public channel
+    try:
+        await client.conversations_join(channel=channel_id)
+    except Exception as e:
+        # If join fails (e.g., private channel), the bot needs to be invited
+        # Log the error but continue - it might already be a member
+        print(f"Could not join channel {channel_id}: {e}")
+
     # Post announcement message to channel
     message_blocks = build_announcement_message(title, content)
 

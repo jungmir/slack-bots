@@ -89,8 +89,12 @@ Required Slack App Scopes:
 - `chat:write` - Post messages to channels
 - `im:write` - Send DMs
 - `channels:read` - List channels for selection
+- `channels:join` - Join public channels automatically
+- `channels:history` - Read channel messages
 - `users:read` - Get user information
-- `commands` - Handle slash commands (if applicable)
+- `conversations.members:read` - Read channel members for reminder functionality
+- `groups:read` - Access private channels info (optional)
+- `groups:write` - Manage private channels (optional)
 
 Database/Storage:
 - Store announcement records (id, channel, title, content, timestamp, sender)
