@@ -52,15 +52,16 @@ def handle_app_home_opened(event, client):
             print(f"Template blocks: {template.blocks}")
 
             # Use template and inject dynamic data
-            blocks = inject_dynamic_data_to_home(template.blocks, announcement_data)
+            blocks = inject_dynamic_data_to_home(template.blocks, announcement_data, user_id)
         else:
             # Use default blocks
-            blocks = build_home_view_blocks(announcement_data)
+            blocks = build_home_view_blocks(announcement_data, user_id)
     except Exception as e:
         import traceback
+
         print(f"Error loading home template: {e}")
         print(traceback.format_exc())
-        blocks = build_home_view_blocks(announcement_data)
+        blocks = build_home_view_blocks(announcement_data, user_id)
 
     client.views_publish(user_id=user_id, view={"type": "home", "blocks": blocks})
 
@@ -327,16 +328,6 @@ def build_home_view_blocks(announcements, user_id):
         {"type": "divider"},
     ]
 
-    blocks.append(
-        {
-            "type": "section",
-            "text": {
-                "type": "plain_text",
-                "text": f"메시지는 <U{user_id}> 님께서 직접 보낸 메시지와 동일하게 발송됩니다.",
-            },
-        }
-    )
-
     if announcements:
         blocks.append(
             {
@@ -393,6 +384,20 @@ def build_home_view_blocks(announcements, user_id):
                 },
             }
         )
+
+    # Add footer message
+    blocks.append({"type": "divider"})
+    blocks.append(
+        {
+            "type": "context",
+            "elements": [
+                {
+                    "type": "mrkdwn",
+                    "text": f"메시지는 <@{user_id}> 님께서 직접 보낸 메시지와 동일하게 발송됩니다.",
+                }
+            ],
+        }
+    )
 
     return blocks
 
@@ -519,7 +524,7 @@ def build_announcement_details_modal(announcement, read_users):
     }
 
 
-def inject_dynamic_data_to_home(template_blocks, announcements):
+def inject_dynamic_data_to_home(template_blocks, announcements, user_id):
     """
     Inject dynamic announcement data into home template blocks.
 
@@ -561,7 +566,10 @@ def inject_dynamic_data_to_home(template_blocks, announcements):
     # Find the announcements list placeholder
     announcement_insert_index = None
     for i, block in enumerate(blocks):
-        if isinstance(block, dict) and block.get("block_id") == "__ANNOUNCEMENTS_LIST__":
+        if (
+            isinstance(block, dict)
+            and block.get("block_id") == "__ANNOUNCEMENTS_LIST__"
+        ):
             announcement_insert_index = i
             break
 
@@ -627,5 +635,19 @@ def inject_dynamic_data_to_home(template_blocks, announcements):
                     },
                 },
             )
+
+    # Add footer message
+    blocks.append({"type": "divider"})
+    blocks.append(
+        {
+            "type": "context",
+            "elements": [
+                {
+                    "type": "mrkdwn",
+                    "text": f"메시지는 <@{user_id}> 님께서 직접 보낸 메시지와 동일하게 발송됩니다.",
+                }
+            ],
+        }
+    )
 
     return blocks
