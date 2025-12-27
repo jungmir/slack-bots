@@ -205,6 +205,11 @@ def handle_announcement_submission(ack, body, client, view):
     except Exception as e:
         print(f"Could not join channel {channel_id}: {e}")
 
+    # Get sender user info
+    sender_info = client.users_info(user=sender_id)
+    sender_name = sender_info["user"]["real_name"] or sender_info["user"]["name"]
+    sender_icon = sender_info["user"]["profile"]["image_512"]
+
     # Get announcement message blocks
     try:
         template = BlockKitTemplate.objects.filter(
@@ -226,10 +231,24 @@ def handle_announcement_submission(ack, body, client, view):
     except Exception:
         message_blocks = build_announcement_message_blocks(title, content)
 
-    # Post message
-    result = client.chat_postMessage(
-        channel=channel_id, blocks=message_blocks, text=f"New Announcement: {title}"
-    )
+    # Post message as the sender user
+    try:
+        result = client.chat_postMessage(
+            channel=channel_id,
+            blocks=message_blocks,
+            text=f"New Announcement: {title}",
+            username=sender_name,
+            icon_url=sender_icon,
+        )
+        print(f"Message posted successfully. Response: {result}")
+    except Exception as e:
+        print(f"Error posting message with custom username/icon: {e}")
+        # Fallback: post without customization
+        result = client.chat_postMessage(
+            channel=channel_id,
+            blocks=message_blocks,
+            text=f"New Announcement: {title}",
+        )
 
     # Save to database
     Announcement.objects.create(
