@@ -527,6 +527,10 @@ def inject_dynamic_data_to_home(template_blocks, announcements):
     {"type": "section", "block_id": "__ANNOUNCEMENTS_LIST__"}
 
     This will be replaced with actual announcement blocks.
+
+    Accepts two formats:
+    1. List of blocks: [{"type": "section", ...}, ...]
+    2. Home view object: {"type": "home", "blocks": [...]}
     """
     import copy
     import json
@@ -540,6 +544,14 @@ def inject_dynamic_data_to_home(template_blocks, announcements):
             return []
     else:
         blocks = copy.deepcopy(template_blocks)
+
+    # Handle case where blocks is a dict with "blocks" key (full home view)
+    if isinstance(blocks, dict):
+        if "blocks" in blocks:
+            blocks = blocks["blocks"]
+        else:
+            print(f"Template is dict but has no 'blocks' key: {blocks.keys()}")
+            return []
 
     # Ensure blocks is a list
     if not isinstance(blocks, list):
