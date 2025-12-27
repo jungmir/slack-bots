@@ -47,14 +47,20 @@ def handle_app_home_opened(event, client):
         ).first()
 
         if template:
+            # Debug: print template structure
+            print(f"Template blocks type: {type(template.blocks)}")
+            print(f"Template blocks: {template.blocks}")
+
             # Use template and inject dynamic data
             blocks = inject_dynamic_data_to_home(template.blocks, announcement_data)
         else:
             # Use default blocks
             blocks = build_home_view_blocks(announcement_data)
     except Exception as e:
+        import traceback
         print(f"Error loading home template: {e}")
-        blocks = build_home_view_blocks(announcement_data, user_id)
+        print(traceback.format_exc())
+        blocks = build_home_view_blocks(announcement_data)
 
     client.views_publish(user_id=user_id, view={"type": "home", "blocks": blocks})
 
@@ -523,13 +529,27 @@ def inject_dynamic_data_to_home(template_blocks, announcements):
     This will be replaced with actual announcement blocks.
     """
     import copy
+    import json
 
-    blocks = copy.deepcopy(template_blocks)
+    # Handle case where template_blocks might be a string
+    if isinstance(template_blocks, str):
+        try:
+            blocks = json.loads(template_blocks)
+        except json.JSONDecodeError:
+            print(f"Error parsing template blocks: {template_blocks}")
+            return []
+    else:
+        blocks = copy.deepcopy(template_blocks)
+
+    # Ensure blocks is a list
+    if not isinstance(blocks, list):
+        print(f"Template blocks is not a list: {type(blocks)}")
+        return []
 
     # Find the announcements list placeholder
     announcement_insert_index = None
     for i, block in enumerate(blocks):
-        if block.get("block_id") == "__ANNOUNCEMENTS_LIST__":
+        if isinstance(block, dict) and block.get("block_id") == "__ANNOUNCEMENTS_LIST__":
             announcement_insert_index = i
             break
 
