@@ -54,7 +54,7 @@ def handle_app_home_opened(event, client):
             blocks = build_home_view_blocks(announcement_data)
     except Exception as e:
         print(f"Error loading home template: {e}")
-        blocks = build_home_view_blocks(announcement_data)
+        blocks = build_home_view_blocks(announcement_data, user_id)
 
     client.views_publish(user_id=user_id, view={"type": "home", "blocks": blocks})
 
@@ -293,7 +293,7 @@ def handle_confirm_announcement(ack, body, client, action):
 # ============================================================================
 
 
-def build_home_view_blocks(announcements):
+def build_home_view_blocks(announcements, user_id):
     """Build App Home view blocks."""
     blocks = [
         {
@@ -320,6 +320,16 @@ def build_home_view_blocks(announcements):
         },
         {"type": "divider"},
     ]
+
+    blocks.append(
+        {
+            "type": "section",
+            "text": {
+                "type": "plain_text",
+                "text": f"메시지는 <U{user_id}> 님께서 직접 보낸 메시지와 동일하게 발송됩니다.",
+            },
+        }
+    )
 
     if announcements:
         blocks.append(
