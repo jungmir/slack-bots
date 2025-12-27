@@ -6,4 +6,5 @@ app_name = 'announcements'
 
 urlpatterns = [
     path('slack/events', views.slack_events, name='slack_events'),
+    path('slack/interactions', views.slack_events, name='slack_interactions'),
 ]
