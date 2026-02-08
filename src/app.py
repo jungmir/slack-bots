@@ -1,16 +1,28 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_bolt.context.ack import Ack
 from slack_bolt.context.say import Say
 
+from src.commands.notice import register_notice_commands
 from src.config import Settings
+from src.events.home import register_home_events
+from src.store.notice_store import NoticeStore
+
+DEFAULT_DB_DIR = Path("data")
+DEFAULT_DB_PATH = DEFAULT_DB_DIR / "notices.db"
 
 
-def create_app(settings: Settings, *, request_verification_enabled: bool = True) -> App:
+def create_app(
+    settings: Settings,
+    *,
+    request_verification_enabled: bool = True,
+    notice_store: NoticeStore | None = None,
+) -> App:
     logging.basicConfig(level=settings.log_level)
 
     app = App(
@@ -27,6 +39,13 @@ def create_app(settings: Settings, *, request_verification_enabled: bool = True)
     def handle_app_mention(event: dict[str, object], say: Say) -> None:
         user = event.get("user", "")
         say(text=f"<@{user}> 안녕하세요! 무엇을 도와드릴까요?")
+
+    if notice_store is None:
+        DEFAULT_DB_DIR.mkdir(parents=True, exist_ok=True)
+        notice_store = NoticeStore(DEFAULT_DB_PATH)
+
+    register_notice_commands(app, notice_store)
+    register_home_events(app, notice_store)
 
     return app
 
