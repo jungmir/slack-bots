@@ -156,7 +156,10 @@ class NoticeStore:
         )
 
     def list_notices(
-        self, channel_id: str | None = None, limit: int = 10, offset: int = 0,
+        self,
+        channel_id: str | None = None,
+        limit: int = 10,
+        offset: int = 0,
     ) -> list[Notice | MeetingNotice]:
         if channel_id:
             rows = self._conn.execute(

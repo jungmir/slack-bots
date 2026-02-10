@@ -1341,8 +1341,7 @@ class TestPaginationBlocks:
     def _get_pagination_actions(self, view: dict) -> list:  # type: ignore[type-arg]
         all_actions = [b for b in view["blocks"] if b["type"] == "actions"]
         return [
-            b for b in all_actions
-            if any(e.get("action_id", "").startswith("dashboard_page_") for e in b["elements"])
+            b for b in all_actions if any(e.get("action_id", "").startswith("dashboard_page_") for e in b["elements"])
         ]
 
     def test_first_page_has_next_only(self) -> None:

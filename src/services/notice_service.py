@@ -141,7 +141,8 @@ class NoticeService:
         return True
 
     def compute_response_rates(
-        self, notices: list[Notice | MeetingNotice],
+        self,
+        notices: list[Notice | MeetingNotice],
     ) -> dict[str, str]:
         channel_members: dict[str, list[str]] = {}
         rates: dict[str, str] = {}

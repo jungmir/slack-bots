@@ -8,9 +8,12 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_bolt.context.ack import Ack
 from slack_bolt.context.say import Say
 
+from src.clients.dooray_client import DoorayClient
+from src.commands.dooray import register_dooray_commands
 from src.commands.notice import register_notice_commands
 from src.config import Settings
 from src.events.home import register_home_events
+from src.store.dooray_store import DoorayStore
 from src.store.notice_store import NoticeStore
 
 DEFAULT_DB_DIR = Path("data")
@@ -22,6 +25,8 @@ def create_app(
     *,
     request_verification_enabled: bool = True,
     notice_store: NoticeStore | None = None,
+    dooray_client: DoorayClient | None = None,
+    dooray_store: DoorayStore | None = None,
 ) -> App:
     logging.basicConfig(level=settings.log_level)
 
@@ -46,6 +51,14 @@ def create_app(
 
     register_notice_commands(app, notice_store)
     register_home_events(app, notice_store)
+
+    if settings.dooray_api_token and settings.dooray_project_id:
+        if dooray_client is None:
+            dooray_client = DoorayClient(settings.dooray_api_token)
+        if dooray_store is None:
+            DEFAULT_DB_DIR.mkdir(parents=True, exist_ok=True)
+            dooray_store = DoorayStore(DEFAULT_DB_DIR / "dooray.db")
+        register_dooray_commands(app, dooray_client, dooray_store, settings.dooray_project_id)
 
     return app
 

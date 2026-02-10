@@ -285,10 +285,7 @@ def build_notice_status_message(notice: Notice, members: list[str]) -> dict[str,
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": (
-                    f"*확인 ({len(read_users)}명):* {read_text}\n"
-                    f"*미확인 ({len(unread_users)}명):* {unread_text}"
-                ),
+                "text": (f"*확인 ({len(read_users)}명):* {read_text}\n*미확인 ({len(unread_users)}명):* {unread_text}"),
             },
         },
     ]
@@ -308,7 +305,9 @@ def build_notice_dashboard_modal(
         "title": {"type": "plain_text", "text": "공지 대시보드"},
         "close": {"type": "plain_text", "text": "닫기"},
         "blocks": _build_dashboard_blocks(
-            notices, response_rates=response_rates, viewer_id=viewer_id,
+            notices,
+            response_rates=response_rates,
+            viewer_id=viewer_id,
         ),
     }
 

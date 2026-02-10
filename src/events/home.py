@@ -22,7 +22,10 @@ PAGE_SIZE = 3
 
 
 def _publish_home_tab(
-    client: WebClient, user_id: str, store: NoticeStore, offset: int = 0,
+    client: WebClient,
+    user_id: str,
+    store: NoticeStore,
+    offset: int = 0,
 ) -> None:
     try:
         notices = store.list_notices(limit=PAGE_SIZE, offset=offset)

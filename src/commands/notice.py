@@ -116,7 +116,9 @@ def register_notice_commands(app: App, store: NoticeStore) -> None:
             service = NoticeService(store, client)
             rates = service.compute_response_rates(notices)
             modal = build_notice_dashboard_modal(
-                notices, response_rates=rates, viewer_id=user_id,
+                notices,
+                response_rates=rates,
+                viewer_id=user_id,
             )
             client.views_open(trigger_id=trigger_id, view=modal)
 

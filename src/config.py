@@ -12,6 +12,8 @@ class Settings:
     slack_app_token: str
     slack_signing_secret: str
     log_level: str = "INFO"
+    dooray_api_token: str = ""
+    dooray_project_id: str = ""
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -20,6 +22,8 @@ class Settings:
         slack_app_token = os.environ.get("SLACK_APP_TOKEN", "")
         slack_signing_secret = os.environ.get("SLACK_SIGNING_SECRET", "")
         log_level = os.environ.get("LOG_LEVEL", "INFO")
+        dooray_api_token = os.environ.get("DOORAY_API_TOKEN", "")
+        dooray_project_id = os.environ.get("DOORAY_PROJECT_ID", "")
 
         missing: list[str] = []
         if not slack_bot_token:
@@ -38,4 +42,6 @@ class Settings:
             slack_app_token=slack_app_token,
             slack_signing_secret=slack_signing_secret,
             log_level=log_level,
+            dooray_api_token=dooray_api_token,
+            dooray_project_id=dooray_project_id,
         )

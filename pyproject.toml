@@ -8,6 +8,7 @@ authors = [
 {name = "jungmir", email = "ham4051@gmail.com"}
 ]
 dependencies = [
+    "httpx>=0.28.0",
     "python-dotenv>=1.2.1",
     "slack-bolt>=1.21.0",
     "slack-sdk>=3.34.0",
