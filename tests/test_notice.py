@@ -362,81 +362,6 @@ class TestNoticeCommands:
             view = call_kwargs.kwargs.get("view") or call_kwargs[1].get("view")
             assert view["callback_id"] == "meeting_notice_modal"
 
-    def test_notice_list(self) -> None:
-        store = NoticeStore()
-        notice = _make_notice()
-        store.create_notice(notice)
-
-        app = _create_test_app(store)
-        request = BoltRequest(
-            body="command=%2Fnotice&text=list&user_id=U1234&trigger_id=T123&channel_id=C1234",
-            headers={"content-type": ["application/x-www-form-urlencoded"]},
-        )
-        response = app.dispatch(request)
-        assert response.status == 200
-
-    def test_notice_status_missing_id(self) -> None:
-        app = _create_test_app()
-        request = BoltRequest(
-            body="command=%2Fnotice&text=status&user_id=U1234&trigger_id=T123&channel_id=C1234",
-            headers={"content-type": ["application/x-www-form-urlencoded"]},
-        )
-        response = app.dispatch(request)
-        assert response.status == 200
-        assert "사용법" in (response.body or "")
-
-    def test_notice_status_not_found(self) -> None:
-        app = _create_test_app()
-        request = BoltRequest(
-            body="command=%2Fnotice&text=status+nonexistent&user_id=U1234&trigger_id=T123&channel_id=C1234",
-            headers={"content-type": ["application/x-www-form-urlencoded"]},
-        )
-        response = app.dispatch(request)
-        assert response.status == 200
-        assert "찾을 수 없습니다" in (response.body or "")
-
-    def test_notice_status_with_general_notice(self) -> None:
-        store = NoticeStore()
-        notice = _make_notice()
-        store.create_notice(notice)
-        app = _create_test_app(store)
-
-        with (
-            patch("slack_sdk.web.client.WebClient.conversations_members") as mock_members,
-            patch("slack_sdk.web.client.WebClient.views_open") as mock_views_open,
-        ):
-            mock_members.return_value = {"members": ["U001", "U002"]}
-            request = BoltRequest(
-                body=f"command=%2Fnotice&text=status+{notice.notice_id}&user_id=U1234&trigger_id=T123&channel_id=C1234",
-                headers={"content-type": ["application/x-www-form-urlencoded"]},
-            )
-            response = app.dispatch(request)
-            assert response.status == 200
-            mock_views_open.assert_called_once()
-            call_kwargs = mock_views_open.call_args.kwargs
-            view = call_kwargs.get("view", {})
-            assert view["type"] == "modal"
-            assert view["title"]["text"] == "읽음 현황"
-
-    def test_notice_remind(self) -> None:
-        store = NoticeStore()
-        notice = _make_notice()
-        store.create_notice(notice)
-        app = _create_test_app(store)
-
-        with (
-            patch("slack_sdk.web.client.WebClient.conversations_members") as mock_members,
-            patch("slack_sdk.web.client.WebClient.chat_postMessage") as mock_post,
-        ):
-            mock_members.return_value = {"members": ["U001", "U002"]}
-            request = BoltRequest(
-                body=f"command=%2Fnotice&text=remind+{notice.notice_id}&user_id=U1234&trigger_id=T123&channel_id=C1234",
-                headers={"content-type": ["application/x-www-form-urlencoded"]},
-            )
-            response = app.dispatch(request)
-            assert response.status == 200
-            assert mock_post.call_count == 2
-
 
 class TestNoticeActions:
     def test_notice_confirm_button(self) -> None:
@@ -719,28 +644,6 @@ class TestMessageLink:
         link = _build_message_link("C1234", "1707350400.000001")
         assert link == "https://slack.com/archives/C1234/p1707350400000001"
 
-    def test_remind_dm_contains_link(self) -> None:
-        store = NoticeStore()
-        notice = _make_notice(message_ts="1707350400.000001")
-        store.create_notice(notice)
-        app = _create_test_app(store)
-
-        with (
-            patch("slack_sdk.web.client.WebClient.conversations_members") as mock_members,
-            patch("slack_sdk.web.client.WebClient.chat_postMessage") as mock_post,
-        ):
-            mock_members.return_value = {"members": ["U001"]}
-            request = BoltRequest(
-                body=f"command=%2Fnotice&text=remind+{notice.notice_id}&user_id=U1234&trigger_id=T123&channel_id=C1234",
-                headers={"content-type": ["application/x-www-form-urlencoded"]},
-            )
-            response = app.dispatch(request)
-            assert response.status == 200
-            mock_post.assert_called_once()
-            dm_text = mock_post.call_args.kwargs.get("text", "")
-            assert "https://slack.com/archives/C1234/p1707350400000001" in dm_text
-            assert "공지 바로가기" in dm_text
-
 
 class TestNoticeDashboard:
     def test_build_dashboard_modal_empty(self) -> None:
@@ -785,39 +688,6 @@ class TestNoticeDashboard:
         assert f"notice_edit_{notice_id}" not in action_ids
         assert f"notice_delete_{notice_id}" not in action_ids
         assert len(action_ids) == 1
-
-    def test_dashboard_subcommand_opens_modal(self) -> None:
-        store = NoticeStore()
-        notice = _make_notice()
-        store.create_notice(notice)
-        app = _create_test_app(store)
-
-        with (
-            patch("slack_sdk.web.client.WebClient.conversations_members") as mock_members,
-            patch("slack_sdk.web.client.WebClient.views_open") as mock_views_open,
-        ):
-            mock_members.return_value = {"members": ["U001", "U002"]}
-            request = BoltRequest(
-                body="command=%2Fnotice&text=dashboard&user_id=U1234&trigger_id=T123&channel_id=C1234",
-                headers={"content-type": ["application/x-www-form-urlencoded"]},
-            )
-            response = app.dispatch(request)
-            assert response.status == 200
-            time.sleep(0.5)
-            mock_views_open.assert_called_once()
-            call_kwargs = mock_views_open.call_args
-            view = call_kwargs.kwargs.get("view") or call_kwargs[1].get("view")
-            assert view["callback_id"] == "notice_dashboard_modal"
-
-    def test_usage_text_includes_dashboard(self) -> None:
-        app = _create_test_app()
-        request = BoltRequest(
-            body="command=%2Fnotice&text=&user_id=U1234&trigger_id=T123&channel_id=C1234",
-            headers={"content-type": ["application/x-www-form-urlencoded"]},
-        )
-        response = app.dispatch(request)
-        assert response.status == 200
-        assert "dashboard" in (response.body or "")
 
 
 class TestStoreUpdate:
@@ -1284,29 +1154,6 @@ class TestRemindExcludes:
         excludes = store.list_remind_excludes()
         assert excludes == ["U001"]
         store.close()
-
-    def test_remind_excludes_filter_in_remind(self) -> None:
-        store = NoticeStore()
-        notice = _make_notice()
-        store.create_notice(notice)
-        store.add_remind_exclude("U001")
-        app = _create_test_app(store)
-
-        with (
-            patch("slack_sdk.web.client.WebClient.conversations_members") as mock_members,
-            patch("slack_sdk.web.client.WebClient.chat_postMessage") as mock_post,
-        ):
-            mock_members.return_value = {"members": ["U001", "U002", "U003"]}
-            request = BoltRequest(
-                body=f"command=%2Fnotice&text=remind+{notice.notice_id}&user_id=U1234&trigger_id=T123&channel_id=C1234",
-                headers={"content-type": ["application/x-www-form-urlencoded"]},
-            )
-            response = app.dispatch(request)
-            assert response.status == 200
-            # U001 excluded, U002 and U003 get reminders
-            assert mock_post.call_count == 2
-            dm_channels = [c.kwargs.get("channel") for c in mock_post.call_args_list]
-            assert "U001" not in dm_channels
 
 
 class TestDashboardNewFormat:

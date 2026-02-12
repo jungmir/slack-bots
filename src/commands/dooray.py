@@ -69,57 +69,8 @@ def register_dooray_commands(
                 tags = service.list_project_tags()
             except Exception:
                 tags = None
-            try:
-                project_name = service.get_project_name()
-            except Exception:
-                project_name = ""
-            current_member_id = dooray_store.get_dooray_member_id(user_id) or ""
-            modal = build_dooray_create_task_modal(
-                default_project_id,
-                tags=tags,
-                project_name=project_name,
-                current_user_member_id=current_member_id,
-            )
+            modal = build_dooray_create_task_modal(tags=tags)
             client.views_open(trigger_id=trigger_id, view=modal)
-
-        elif subcommand == "done":
-            task_id = parts[1].strip() if len(parts) > 1 else ""
-            if not task_id:
-                client.views_open(
-                    trigger_id=trigger_id,
-                    view=build_dooray_result_modal("사용법", "사용법: `/dooray done <업무ID>`"),
-                )
-                return
-            try:
-                service.complete_task(task_id)
-            except DoorayServiceError as e:
-                client.views_open(trigger_id=trigger_id, view=build_dooray_error_modal(str(e)))
-                return
-            client.views_open(
-                trigger_id=trigger_id,
-                view=build_dooray_result_modal("완료", f"업무가 완료 처리되었습니다.\nID: `{task_id}`"),
-            )
-
-        elif subcommand == "comment":
-            rest = parts[1].strip() if len(parts) > 1 else ""
-            comment_parts = rest.split(maxsplit=1)
-            task_id = comment_parts[0] if comment_parts else ""
-            content = comment_parts[1] if len(comment_parts) > 1 else ""
-            if not task_id or not content:
-                client.views_open(
-                    trigger_id=trigger_id,
-                    view=build_dooray_result_modal("사용법", "사용법: `/dooray comment <업무ID> <내용>`"),
-                )
-                return
-            try:
-                service.add_comment(task_id, content)
-            except DoorayServiceError as e:
-                client.views_open(trigger_id=trigger_id, view=build_dooray_error_modal(str(e)))
-                return
-            client.views_open(
-                trigger_id=trigger_id,
-                view=build_dooray_result_modal("완료", f"업무에 코멘트가 추가되었습니다.\nID: `{task_id}`"),
-            )
 
         elif subcommand == "setup":
             rest = parts[1].strip() if len(parts) > 1 else ""
@@ -163,15 +114,6 @@ def register_dooray_commands(
         subject = str(values["subject_block"]["subject_input"].get("value", ""))
         body_text = str(values["body_block"]["body_input"].get("value", "") or "")
 
-        assignee_data = values["assignee_block"]["assignee_input"]
-        assignee_selected: list[dict[str, object]] | None = assignee_data.get("selected_options")  # type: ignore[assignment]
-        to_member_ids: list[str] | None
-        if assignee_selected:
-            to_member_ids = [str(opt.get("value", "")) for opt in assignee_selected]
-        else:
-            assignee_raw = str(assignee_data.get("value", "") or "")
-            to_member_ids = _parse_csv_input(assignee_raw) if assignee_raw else None
-
         tag_data = values["tag_block"]["tag_input"]
         tag_selected: list[dict[str, object]] | None = tag_data.get("selected_options")  # type: ignore[assignment]
         tag_ids: list[str] | None
@@ -183,10 +125,6 @@ def register_dooray_commands(
 
         due_date = str(values["due_date_block"]["due_date_input"].get("selected_date", "") or "")
 
-        project_id = ""
-        if "project_block" in values:
-            project_id = str(values["project_block"]["project_input"].get("value", "") or "")
-
         user: dict[str, str] = body.get("user", {})  # type: ignore[assignment]
         user_id = user.get("id", "")
 
@@ -194,9 +132,7 @@ def register_dooray_commands(
             task = service.create_task(
                 subject=subject,
                 body=body_text,
-                project_id=project_id,
                 slack_user_id=user_id,
-                to_member_ids=to_member_ids,
                 tag_ids=tag_ids,
                 due_date=due_date,
             )

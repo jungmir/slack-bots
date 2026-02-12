@@ -41,19 +41,6 @@ class DoorayTag:
     color: str
 
 
-@dataclass(frozen=True)
-class DoorayProject:
-    id: str
-    name: str
-
-
-@dataclass(frozen=True)
-class DoorayWorkflow:
-    id: str
-    name: str
-    workflow_class: str
-
-
 class DoorayClient:
     def __init__(self, token: str, *, http_client: httpx.Client | None = None) -> None:
         self._client = http_client or httpx.Client(
@@ -133,45 +120,6 @@ class DoorayClient:
             users_to=to_member_ids or [],
         )
 
-    def complete_task(self, project_id: str, task_id: str) -> bool:
-        workflows = self.list_workflows(project_id)
-        closed_wf = next((w for w in workflows if w.workflow_class == "closed"), None)
-        if closed_wf is None:
-            logger.warning("No closed workflow found for project %s", project_id)
-            return False
-        logger.warning(
-            "complete_task: project_id=%s, task_id=%s, workflow_id=%s",
-            project_id,
-            task_id,
-            closed_wf.id,
-        )
-        self._request(
-            "POST",
-            f"/project/v1/projects/{project_id}/posts/{task_id}/set-workflow",
-            json={"workflowId": closed_wf.id},
-        )
-        return True
-
-    def add_comment(self, project_id: str, task_id: str, content: str) -> bool:
-        self._request(
-            "POST",
-            f"/project/v1/projects/{project_id}/posts/{task_id}/logs",
-            json={"body": {"mimeType": "text/x-markdown", "content": content}},
-        )
-        return True
-
-    def list_workflows(self, project_id: str) -> list[DoorayWorkflow]:
-        data = self._request("GET", f"/project/v1/projects/{project_id}/workflows")
-        result = data.get("result", [])
-        return [
-            DoorayWorkflow(
-                id=str(w.get("id", "")),
-                name=str(w.get("name", "")),
-                workflow_class=str(w.get("class", "")),
-            )
-            for w in result
-        ]
-
     def search_members(self, name: str) -> list[DoorayMember]:
         data = self._request(
             "GET",
@@ -224,16 +172,6 @@ class DoorayClient:
             for t in items
             if t.get("id")
         ]
-
-    def get_project(self, project_id: str) -> DoorayProject:
-        data = self._request(
-            "GET",
-            f"/project/v1/projects/{project_id}",
-            timeout=2.0,
-        )
-        result = data.get("result", {})
-        name = str(result.get("code", "") or result.get("name", "") or "")
-        return DoorayProject(id=project_id, name=name)
 
     def close(self) -> None:
         self._client.close()

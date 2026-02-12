@@ -19,8 +19,6 @@ def build_dooray_usage_modal() -> dict[str, Any]:
                         "*`/dooray` 사용법:*\n\n"
                         "• `/dooray me` — 나에게 할당된 업무 목록\n"
                         "• `/dooray create` — 업무 생성 (모달)\n"
-                        "• `/dooray done <업무ID>` — 업무 완료 처리\n"
-                        "• `/dooray comment <업무ID> <내용>` — 업무에 코멘트 추가\n"
                         "• `/dooray setup` — Slack↔Dooray 사용자 연결\n"
                         "• `/dooray setup search <이름>` — Dooray 멤버 검색"
                     ),
@@ -62,19 +60,8 @@ def build_dooray_task_list_modal(tasks: list[DoorayTask]) -> dict[str, Any]:
 
 
 def build_dooray_create_task_modal(
-    default_project_id: str = "",
     tags: list[DoorayTag] | None = None,
-    project_name: str = "",
-    current_user_member_id: str = "",
 ) -> dict[str, Any]:
-    assignee_element: dict[str, Any] = {
-        "type": "plain_text_input",
-        "action_id": "assignee_input",
-        "placeholder": {"type": "plain_text", "text": "담당자 멤버 ID (쉼표로 구분)"},
-    }
-    if current_user_member_id:
-        assignee_element["initial_value"] = current_user_member_id
-
     tag_options = [
         {
             "text": {"type": "plain_text", "text": t.name or t.id},
@@ -122,13 +109,6 @@ def build_dooray_create_task_modal(
         },
         {
             "type": "input",
-            "block_id": "assignee_block",
-            "optional": True,
-            "element": assignee_element,
-            "label": {"type": "plain_text", "text": "담당자"},
-        },
-        {
-            "type": "input",
             "block_id": "tag_block",
             "optional": True,
             "element": tag_element,
@@ -147,30 +127,12 @@ def build_dooray_create_task_modal(
         },
     ]
 
-    if default_project_id:
-        project_label = f"프로젝트: {project_name}" if project_name else "프로젝트 ID (변경 시 입력)"
-        blocks.append(
-            {
-                "type": "input",
-                "block_id": "project_block",
-                "optional": True,
-                "element": {
-                    "type": "plain_text_input",
-                    "action_id": "project_input",
-                    "initial_value": default_project_id,
-                    "placeholder": {"type": "plain_text", "text": "프로젝트 ID"},
-                },
-                "label": {"type": "plain_text", "text": project_label},
-            }
-        )
-
     return {
         "type": "modal",
         "callback_id": "dooray_create_task_modal",
         "title": {"type": "plain_text", "text": "두레이 업무 생성"},
         "submit": {"type": "plain_text", "text": "생성"},
         "close": {"type": "plain_text", "text": "취소"},
-        "private_metadata": default_project_id,
         "blocks": blocks,
     }
 

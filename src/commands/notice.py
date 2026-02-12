@@ -15,10 +15,8 @@ from src.views.notice_views import (
     build_meeting_notice_modal,
     build_meeting_status_modal,
     build_notice_create_modal,
-    build_notice_dashboard_modal,
     build_notice_delete_confirm_modal,
     build_notice_edit_modal,
-    build_notice_list_message,
     build_notice_status_modal,
     build_remind_exclude_modal,
 )
@@ -34,11 +32,7 @@ def _send_feedback(client: WebClient, channel_id: str, user_id: str, text: str) 
 USAGE_TEXT = (
     "*`/notice` 사용법:*\n"
     "• `/notice create` — 일반 공지 작성\n"
-    "• `/notice meeting` — 회의 공지 작성\n"
-    "• `/notice list` — 공지 목록 조회\n"
-    "• `/notice status <id>` — 공지 읽음/참석 현황\n"
-    "• `/notice remind <id>` — 미확인자에게 리마인드 DM\n"
-    "• `/notice dashboard` — 전체 공지 대시보드"
+    "• `/notice meeting` — 회의 공지 작성"
 )
 
 
@@ -63,64 +57,6 @@ def register_notice_commands(app: App, store: NoticeStore) -> None:
             ack()
             channel_id = str(body.get("channel_id", ""))
             client.views_open(trigger_id=trigger_id, view=build_meeting_notice_modal(channel_id))
-
-        elif subcommand == "list":
-            channel_id = str(body.get("channel_id", ""))
-            notices = store.list_notices(channel_id=channel_id)
-            msg = build_notice_list_message(notices)
-            ack(text=msg["text"], blocks=msg.get("blocks"))
-
-        elif subcommand == "status":
-            notice_id = parts[1].strip() if len(parts) > 1 else ""
-            if not notice_id:
-                ack(text="사용법: `/notice status <공지 ID>`")
-                return
-
-            notice = store.get_notice(notice_id)
-            if notice is None:
-                ack(text=f"공지를 찾을 수 없습니다: `{notice_id}`")
-                return
-
-            ack()
-            service = NoticeService(store, client)
-            members = service.get_channel_members(notice.channel_id)
-            if isinstance(notice, MeetingNotice):
-                modal = build_meeting_status_modal(notice, members)
-            else:
-                modal = build_notice_status_modal(notice, members)
-            client.views_open(trigger_id=trigger_id, view=modal)
-
-        elif subcommand == "remind":
-            notice_id = parts[1].strip() if len(parts) > 1 else ""
-            if not notice_id:
-                ack(text="사용법: `/notice remind <공지 ID>`")
-                return
-
-            notice = store.get_notice(notice_id)
-            if notice is None:
-                ack(text=f"공지를 찾을 수 없습니다: `{notice_id}`")
-                return
-
-            service = NoticeService(store, client)
-            if isinstance(notice, MeetingNotice):
-                count = service.remind_meeting_non_responders(notice.notice_id)
-                ack(text=f"{count}명에게 참석 여부 리마인드를 보냈습니다.")
-            else:
-                count = service.remind_unread_users(notice.notice_id)
-                ack(text=f"{count}명에게 읽음 확인 리마인드를 보냈습니다.")
-
-        elif subcommand == "dashboard":
-            ack()
-            user_id = str(body.get("user_id", ""))
-            notices = store.list_notices(limit=50)
-            service = NoticeService(store, client)
-            rates = service.compute_response_rates(notices)
-            modal = build_notice_dashboard_modal(
-                notices,
-                response_rates=rates,
-                viewer_id=user_id,
-            )
-            client.views_open(trigger_id=trigger_id, view=modal)
 
         else:
             ack(text=USAGE_TEXT)

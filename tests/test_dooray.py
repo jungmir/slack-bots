@@ -161,53 +161,6 @@ class TestDoorayClient:
         assert len(tasks) == 2
         assert tasks[0].subject == "Task 1"
 
-    def test_complete_task_uses_set_workflow_endpoint(self) -> None:
-        mock_http = _make_mock_client()
-        wf_resp = MagicMock()
-        wf_resp.status_code = 200
-        wf_resp.json.return_value = {
-            "result": [
-                {"id": "WF1", "name": "등록", "class": "registered"},
-                {"id": "WF2", "name": "완료", "class": "closed"},
-            ],
-        }
-        update_resp = MagicMock()
-        update_resp.status_code = 200
-        update_resp.json.return_value = {"result": {}}
-        mock_http.request.side_effect = [wf_resp, update_resp]
-        client = DoorayClient("token", http_client=mock_http)
-
-        result = client.complete_task("P1", "T1")
-        assert result is True
-        assert mock_http.request.call_count == 2
-        # Verify it uses /set-workflow endpoint
-        second_call = mock_http.request.call_args_list[1]
-        assert "/set-workflow" in str(second_call)
-
-    def test_complete_task_no_closed_workflow(self) -> None:
-        mock_http = _make_mock_client()
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "result": [{"id": "WF1", "name": "등록", "class": "registered"}],
-        }
-        mock_http.request.return_value = mock_response
-        client = DoorayClient("token", http_client=mock_http)
-
-        result = client.complete_task("P1", "T1")
-        assert result is False
-
-    def test_add_comment(self) -> None:
-        mock_http = _make_mock_client()
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"result": {}}
-        mock_http.request.return_value = mock_response
-        client = DoorayClient("token", http_client=mock_http)
-
-        result = client.add_comment("P1", "T1", "Hello!")
-        assert result is True
-
     def test_search_members(self) -> None:
         mock_http = _make_mock_client()
         mock_response = MagicMock()
@@ -239,24 +192,6 @@ class TestDoorayClient:
         except DoorayApiError as e:
             assert e.status_code == 401
 
-    def test_list_workflows(self) -> None:
-        mock_http = _make_mock_client()
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "result": [
-                {"id": "WF1", "name": "등록", "class": "registered"},
-                {"id": "WF2", "name": "진행중", "class": "working"},
-                {"id": "WF3", "name": "완료", "class": "closed"},
-            ],
-        }
-        mock_http.request.return_value = mock_response
-        client = DoorayClient("token", http_client=mock_http)
-
-        workflows = client.list_workflows("P1")
-        assert len(workflows) == 3
-        assert workflows[2].workflow_class == "closed"
-
     def test_list_project_tags(self) -> None:
         mock_http = _make_mock_client()
         mock_response = MagicMock()
@@ -276,32 +211,6 @@ class TestDoorayClient:
         assert tags[0].name == "버그"
         assert tags[0].color == "red"
 
-    def test_get_project(self) -> None:
-        mock_http = _make_mock_client()
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "result": {"id": "P1", "code": "my-project", "name": "My Project"},
-        }
-        mock_http.request.return_value = mock_response
-        client = DoorayClient("token", http_client=mock_http)
-
-        project = client.get_project("P1")
-        assert project.id == "P1"
-        assert project.name == "my-project"
-
-    def test_get_project_fallback_to_name(self) -> None:
-        mock_http = _make_mock_client()
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "result": {"id": "P1", "name": "My Project"},
-        }
-        mock_http.request.return_value = mock_response
-        client = DoorayClient("token", http_client=mock_http)
-
-        project = client.get_project("P1")
-        assert project.name == "My Project"
 
 
 # --- DoorayStore Tests ---
@@ -367,19 +276,14 @@ class TestDoorayViews:
         assert len(sections) == 1
         assert "Task 1" in sections[0]["text"]["text"]
 
-    def test_create_task_modal_has_new_fields(self) -> None:
-        modal = build_dooray_create_task_modal("P1234")
+    def test_create_task_modal_has_fields(self) -> None:
+        modal = build_dooray_create_task_modal()
         block_ids = [b["block_id"] for b in modal["blocks"]]
         assert "subject_block" in block_ids
         assert "body_block" in block_ids
-        assert "assignee_block" in block_ids
         assert "tag_block" in block_ids
         assert "due_date_block" in block_ids
-        assert "project_block" in block_ids
-
-    def test_create_task_modal_no_project(self) -> None:
-        modal = build_dooray_create_task_modal()
-        block_ids = [b["block_id"] for b in modal["blocks"]]
+        assert "assignee_block" not in block_ids
         assert "project_block" not in block_ids
 
     def test_result_modal(self) -> None:
@@ -430,41 +334,12 @@ class TestDoorayViews:
         assert "연결되지" in modal["blocks"][0]["text"]["text"]
 
     def test_create_task_modal_with_tags_dropdown(self) -> None:
-        modal = build_dooray_create_task_modal("P1234", tags=_SAMPLE_TAGS)
+        modal = build_dooray_create_task_modal(tags=_SAMPLE_TAGS)
         tag_block = next(b for b in modal["blocks"] if b["block_id"] == "tag_block")
         element = tag_block["element"]
         assert element["type"] == "multi_static_select"
         assert len(element["options"]) == 2
         assert element["options"][0]["value"] == "TAG1"
-
-    def test_create_task_modal_assignee_is_text_input(self) -> None:
-        modal = build_dooray_create_task_modal("P1234")
-        assignee_block = next(b for b in modal["blocks"] if b["block_id"] == "assignee_block")
-        assert assignee_block["element"]["type"] == "plain_text_input"
-
-    def test_create_task_modal_with_project_name(self) -> None:
-        modal = build_dooray_create_task_modal("P1234", project_name="my-project")
-        project_block = next(b for b in modal["blocks"] if b["block_id"] == "project_block")
-        assert "my-project" in project_block["label"]["text"]
-        assert project_block["element"]["initial_value"] == "P1234"
-
-    def test_create_task_modal_without_project_name(self) -> None:
-        modal = build_dooray_create_task_modal("P1234")
-        project_block = next(b for b in modal["blocks"] if b["block_id"] == "project_block")
-        assert "프로젝트 ID" in project_block["label"]["text"]
-
-    def test_create_task_modal_default_assignee(self) -> None:
-        modal = build_dooray_create_task_modal("P1234", current_user_member_id="M1")
-        assignee_block = next(b for b in modal["blocks"] if b["block_id"] == "assignee_block")
-        element = assignee_block["element"]
-        assert element["type"] == "plain_text_input"
-        assert element["initial_value"] == "M1"
-
-    def test_create_task_modal_no_default_assignee(self) -> None:
-        modal = build_dooray_create_task_modal("P1234")
-        assignee_block = next(b for b in modal["blocks"] if b["block_id"] == "assignee_block")
-        element = assignee_block["element"]
-        assert "initial_value" not in element
 
 
 # --- DoorayService Tests ---
@@ -542,40 +417,10 @@ class TestDoorayService:
 
         task = service.create_task(
             subject="New task",
-            to_member_ids=["M1"],
             tag_ids=["TAG1"],
             due_date="2026-03-01",
         )
         assert task.id == "T_NEW"
-
-    def test_complete_task_success(self) -> None:
-        mock_http = _make_mock_client()
-        wf_resp = MagicMock()
-        wf_resp.status_code = 200
-        wf_resp.json.return_value = {
-            "result": [{"id": "WF1", "name": "완료", "class": "closed"}],
-        }
-        update_resp = MagicMock()
-        update_resp.status_code = 200
-        update_resp.json.return_value = {"result": {}}
-        mock_http.request.side_effect = [wf_resp, update_resp]
-        client = DoorayClient("token", http_client=mock_http)
-        service = self._make_service(client=client)
-
-        result = service.complete_task("T1")
-        assert result is True
-
-    def test_add_comment_success(self) -> None:
-        mock_http = _make_mock_client()
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"result": {}}
-        mock_http.request.return_value = mock_response
-        client = DoorayClient("token", http_client=mock_http)
-        service = self._make_service(client=client)
-
-        result = service.add_comment("T1", "Hello!")
-        assert result is True
 
     def test_setup_user(self) -> None:
         store = DoorayStore()
@@ -612,31 +457,6 @@ class TestDoorayService:
         assert len(tags) == 1
         assert tags[0].name == "버그"
 
-    def test_get_project_name(self) -> None:
-        mock_http = _make_mock_client()
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "result": {"id": "P_DEFAULT", "code": "my-project"},
-        }
-        mock_http.request.return_value = mock_response
-        client = DoorayClient("token", http_client=mock_http)
-        service = self._make_service(client=client)
-
-        name = service.get_project_name()
-        assert name == "my-project"
-
-    def test_get_project_name_api_error_returns_empty(self) -> None:
-        mock_http = _make_mock_client()
-        mock_response = MagicMock()
-        mock_response.status_code = 500
-        mock_response.text = "Internal Server Error"
-        mock_http.request.return_value = mock_response
-        client = DoorayClient("token", http_client=mock_http)
-        service = self._make_service(client=client)
-
-        name = service.get_project_name()
-        assert name == ""
 
 
 # --- DoorayCommands Integration Tests ---
@@ -717,76 +537,6 @@ class TestDoorayCommands:
             mock_open.assert_called_once()
             view = mock_open.call_args.kwargs["view"]
             assert view["callback_id"] == "dooray_create_task_modal"
-
-    def test_done_missing_id_opens_modal(self) -> None:
-        app = _create_test_app()
-        with patch("slack_sdk.web.client.WebClient.views_open") as mock_open:
-            request = BoltRequest(
-                body="command=%2Fdooray&text=done&user_id=U1234&trigger_id=T123&channel_id=C1234",
-                headers={"content-type": ["application/x-www-form-urlencoded"]},
-            )
-            response = app.dispatch(request)
-            assert response.status == 200
-            mock_open.assert_called_once()
-            view = mock_open.call_args.kwargs["view"]
-            assert "사용법" in view["blocks"][0]["text"]["text"]
-
-    def test_done_success_opens_result_modal(self) -> None:
-        mock_http = _make_mock_client()
-        wf_resp = MagicMock()
-        wf_resp.status_code = 200
-        wf_resp.json.return_value = {
-            "result": [{"id": "WF1", "name": "완료", "class": "closed"}],
-        }
-        update_resp = MagicMock()
-        update_resp.status_code = 200
-        update_resp.json.return_value = {"result": {}}
-        mock_http.request.side_effect = [wf_resp, update_resp]
-        client = DoorayClient("token", http_client=mock_http)
-        app = _create_test_app(dooray_client=client)
-
-        with patch("slack_sdk.web.client.WebClient.views_open") as mock_open:
-            request = BoltRequest(
-                body="command=%2Fdooray&text=done+T999&user_id=U1234&trigger_id=T123&channel_id=C1234",
-                headers={"content-type": ["application/x-www-form-urlencoded"]},
-            )
-            response = app.dispatch(request)
-            assert response.status == 200
-            mock_open.assert_called_once()
-            view = mock_open.call_args.kwargs["view"]
-            assert view["title"]["text"] == "완료"
-
-    def test_comment_missing_args_opens_modal(self) -> None:
-        app = _create_test_app()
-        with patch("slack_sdk.web.client.WebClient.views_open") as mock_open:
-            request = BoltRequest(
-                body="command=%2Fdooray&text=comment&user_id=U1234&trigger_id=T123&channel_id=C1234",
-                headers={"content-type": ["application/x-www-form-urlencoded"]},
-            )
-            response = app.dispatch(request)
-            assert response.status == 200
-            mock_open.assert_called_once()
-
-    def test_comment_success_opens_result_modal(self) -> None:
-        mock_http = _make_mock_client()
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"result": {}}
-        mock_http.request.return_value = mock_response
-        client = DoorayClient("token", http_client=mock_http)
-        app = _create_test_app(dooray_client=client)
-
-        with patch("slack_sdk.web.client.WebClient.views_open") as mock_open:
-            request = BoltRequest(
-                body="command=%2Fdooray&text=comment+T123+Hello+World&user_id=U1234&trigger_id=T123&channel_id=C1234",
-                headers={"content-type": ["application/x-www-form-urlencoded"]},
-            )
-            response = app.dispatch(request)
-            assert response.status == 200
-            mock_open.assert_called_once()
-            view = mock_open.call_args.kwargs["view"]
-            assert view["title"]["text"] == "완료"
-            assert "코멘트" in view["blocks"][0]["text"]["text"]
 
     def test_setup_no_args_opens_setup_modal(self) -> None:
         app = _create_test_app()
@@ -938,15 +688,13 @@ class TestDoorayCreateTaskModal:
             "view": {
                 "type": "modal",
                 "callback_id": "dooray_create_task_modal",
-                "private_metadata": "P1234",
+                "private_metadata": "",
                 "state": {
                     "values": {
                         "subject_block": {"subject_input": {"value": "New Task"}},
                         "body_block": {"body_input": {"value": "Details"}},
-                        "assignee_block": {"assignee_input": {"value": "M1, M2"}},
                         "tag_block": {"tag_input": {"value": "TAG1, TAG2"}},
                         "due_date_block": {"due_date_input": {"selected_date": "2026-03-01"}},
-                        "project_block": {"project_input": {"value": "P_CUSTOM"}},
                     },
                 },
             },
@@ -980,20 +728,11 @@ class TestDoorayCreateTaskModal:
             "view": {
                 "type": "modal",
                 "callback_id": "dooray_create_task_modal",
-                "private_metadata": "P1234",
+                "private_metadata": "",
                 "state": {
                     "values": {
                         "subject_block": {"subject_input": {"value": "Dropdown Task"}},
                         "body_block": {"body_input": {"value": None}},
-                        "assignee_block": {
-                            "assignee_input": {
-                                "type": "multi_static_select",
-                                "selected_options": [
-                                    {"text": {"type": "plain_text", "text": "홍길동"}, "value": "M1"},
-                                    {"text": {"type": "plain_text", "text": "김철수"}, "value": "M2"},
-                                ],
-                            },
-                        },
                         "tag_block": {
                             "tag_input": {
                                 "type": "multi_static_select",
@@ -1019,10 +758,8 @@ class TestDoorayCreateTaskModal:
         body_data = json.loads(response.body) if response.body else {}
         assert body_data.get("response_action") == "update"
         assert "T_DROP" in body_data["view"]["blocks"][0]["text"]["text"]
-        # Verify the API was called with the right member/tag IDs
         call_kwargs = mock_http.request.call_args
         payload = call_kwargs.kwargs.get("json") or call_kwargs[1].get("json")
-        assert len(payload["users"]["to"]) == 2
         assert payload["tagIds"] == ["TAG1"]
 
     def test_modal_submission_minimal(self) -> None:
@@ -1040,12 +777,11 @@ class TestDoorayCreateTaskModal:
             "view": {
                 "type": "modal",
                 "callback_id": "dooray_create_task_modal",
-                "private_metadata": "P1234",
+                "private_metadata": "",
                 "state": {
                     "values": {
                         "subject_block": {"subject_input": {"value": "Simple Task"}},
                         "body_block": {"body_input": {"value": None}},
-                        "assignee_block": {"assignee_input": {"value": None}},
                         "tag_block": {"tag_input": {"value": None}},
                         "due_date_block": {"due_date_input": {"selected_date": None}},
                     },
@@ -1080,12 +816,11 @@ class TestDoorayCreateTaskModal:
             "view": {
                 "type": "modal",
                 "callback_id": "dooray_create_task_modal",
-                "private_metadata": "P1234",
+                "private_metadata": "",
                 "state": {
                     "values": {
                         "subject_block": {"subject_input": {"value": "Fail Task"}},
                         "body_block": {"body_input": {"value": None}},
-                        "assignee_block": {"assignee_input": {"value": None}},
                         "tag_block": {"tag_input": {"value": None}},
                         "due_date_block": {"due_date_input": {"selected_date": None}},
                     },
