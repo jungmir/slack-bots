@@ -324,21 +324,11 @@ class TestNoticeViews:
 
 
 class TestNoticeCommands:
-    def test_notice_no_subcommand_shows_usage(self) -> None:
-        app = _create_test_app()
-        request = BoltRequest(
-            body="command=%2Fnotice&text=&user_id=U1234&trigger_id=T123&channel_id=C1234",
-            headers={"content-type": ["application/x-www-form-urlencoded"]},
-        )
-        response = app.dispatch(request)
-        assert response.status == 200
-        assert "사용법" in (response.body or "")
-
     def test_notice_create_opens_modal(self) -> None:
         app = _create_test_app()
         with patch("slack_sdk.web.client.WebClient.views_open") as mock_views_open:
             request = BoltRequest(
-                body="command=%2Fnotice&text=create&user_id=U1234&trigger_id=T123&channel_id=C1234",
+                body="command=%2F%EA%B3%B5%EC%A7%80&text=&user_id=U1234&trigger_id=T123&channel_id=C1234",
                 headers={"content-type": ["application/x-www-form-urlencoded"]},
             )
             response = app.dispatch(request)
@@ -352,7 +342,7 @@ class TestNoticeCommands:
         app = _create_test_app()
         with patch("slack_sdk.web.client.WebClient.views_open") as mock_views_open:
             request = BoltRequest(
-                body="command=%2Fnotice&text=meeting&user_id=U1234&trigger_id=T123&channel_id=C1234",
+                body="command=%2F%EC%A0%95%EA%B8%B0%ED%9A%8C%EC%9D%98&text=&user_id=U1234&trigger_id=T123&channel_id=C1234",
                 headers={"content-type": ["application/x-www-form-urlencoded"]},
             )
             response = app.dispatch(request)

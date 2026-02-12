@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import logging
-
 from slack_bolt import App
 from slack_bolt.context.ack import Ack
 from slack_sdk.web import WebClient
@@ -12,16 +10,12 @@ from src.store.dooray_store import DoorayStore
 from src.views.dooray_views import (
     build_dooray_create_task_modal,
     build_dooray_error_modal,
-    build_dooray_member_search_modal,
     build_dooray_not_linked_modal,
     build_dooray_result_modal,
     build_dooray_setup_modal,
     build_dooray_setup_select_modal,
     build_dooray_task_list_modal,
-    build_dooray_usage_modal,
 )
-
-logger = logging.getLogger(__name__)
 
 
 def _parse_csv_input(raw: str) -> list[str]:
@@ -40,68 +34,49 @@ def register_dooray_commands(
         default_project_id=default_project_id,
     )
 
-    @app.command("/dooray")
-    def handle_dooray_command(
+    @app.command("/내업무")
+    def handle_my_tasks_command(
         ack: Ack,
         body: dict[str, object],
         client: WebClient,
     ) -> None:
         ack()
-        text = str(body.get("text", "")).strip()
         trigger_id = str(body.get("trigger_id", ""))
         user_id = str(body.get("user_id", ""))
-        parts = text.split(maxsplit=1)
-        subcommand = parts[0] if parts else ""
+        try:
+            tasks = service.get_my_tasks(user_id)
+        except UserNotLinkedError:
+            client.views_open(trigger_id=trigger_id, view=build_dooray_not_linked_modal())
+            return
+        except DoorayServiceError as e:
+            client.views_open(trigger_id=trigger_id, view=build_dooray_error_modal(str(e)))
+            return
+        client.views_open(trigger_id=trigger_id, view=build_dooray_task_list_modal(tasks))
 
-        if subcommand == "me":
-            try:
-                tasks = service.get_my_tasks(user_id)
-            except UserNotLinkedError:
-                client.views_open(trigger_id=trigger_id, view=build_dooray_not_linked_modal())
-                return
-            except DoorayServiceError as e:
-                client.views_open(trigger_id=trigger_id, view=build_dooray_error_modal(str(e)))
-                return
-            client.views_open(trigger_id=trigger_id, view=build_dooray_task_list_modal(tasks))
+    @app.command("/새업무")
+    def handle_create_task_command(
+        ack: Ack,
+        body: dict[str, object],
+        client: WebClient,
+    ) -> None:
+        ack()
+        trigger_id = str(body.get("trigger_id", ""))
+        try:
+            tags = service.list_project_tags()
+        except Exception:
+            tags = None
+        modal = build_dooray_create_task_modal(tags=tags)
+        client.views_open(trigger_id=trigger_id, view=modal)
 
-        elif subcommand == "create":
-            try:
-                tags = service.list_project_tags()
-            except Exception:
-                tags = None
-            modal = build_dooray_create_task_modal(tags=tags)
-            client.views_open(trigger_id=trigger_id, view=modal)
-
-        elif subcommand == "setup":
-            rest = parts[1].strip() if len(parts) > 1 else ""
-            setup_parts = rest.split(maxsplit=1)
-            setup_sub = setup_parts[0] if setup_parts else ""
-
-            if setup_sub == "search":
-                search_name = setup_parts[1].strip() if len(setup_parts) > 1 else ""
-                if not search_name:
-                    client.views_open(
-                        trigger_id=trigger_id,
-                        view=build_dooray_result_modal("사용법", "사용법: `/dooray setup search <이름>`"),
-                    )
-                    return
-                try:
-                    members = service.search_members(search_name)
-                except DoorayServiceError as e:
-                    client.views_open(trigger_id=trigger_id, view=build_dooray_error_modal(str(e)))
-                    return
-                client.views_open(trigger_id=trigger_id, view=build_dooray_member_search_modal(members))
-            elif setup_sub:
-                service.setup_user(user_id, setup_sub)
-                client.views_open(
-                    trigger_id=trigger_id,
-                    view=build_dooray_result_modal("연결 완료", f"Dooray 멤버 ID가 등록되었습니다: `{setup_sub}`"),
-                )
-            else:
-                client.views_open(trigger_id=trigger_id, view=build_dooray_setup_modal())
-
-        else:
-            client.views_open(trigger_id=trigger_id, view=build_dooray_usage_modal())
+    @app.command("/두레이연동")
+    def handle_dooray_setup_command(
+        ack: Ack,
+        body: dict[str, object],
+        client: WebClient,
+    ) -> None:
+        ack()
+        trigger_id = str(body.get("trigger_id", ""))
+        client.views_open(trigger_id=trigger_id, view=build_dooray_setup_modal())
 
     @app.view("dooray_create_task_modal")
     def handle_dooray_create_task_submission(

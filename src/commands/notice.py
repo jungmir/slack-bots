@@ -29,37 +29,28 @@ def _send_feedback(client: WebClient, channel_id: str, user_id: str, text: str) 
         client.chat_postMessage(channel=user_id, text=text)
 
 
-USAGE_TEXT = (
-    "*`/notice` 사용법:*\n"
-    "• `/notice create` — 일반 공지 작성\n"
-    "• `/notice meeting` — 회의 공지 작성"
-)
-
-
 def register_notice_commands(app: App, store: NoticeStore) -> None:
-    @app.command("/notice")
-    def handle_notice_command(
+    @app.command("/공지")
+    def handle_notice_create_command(
         ack: Ack,
         body: dict[str, object],
         client: WebClient,
     ) -> None:
-        text = str(body.get("text", "")).strip()
+        ack()
         trigger_id = str(body.get("trigger_id", ""))
-        parts = text.split(maxsplit=1)
-        subcommand = parts[0] if parts else ""
+        channel_id = str(body.get("channel_id", ""))
+        client.views_open(trigger_id=trigger_id, view=build_notice_create_modal(channel_id))
 
-        if subcommand == "create":
-            ack()
-            channel_id = str(body.get("channel_id", ""))
-            client.views_open(trigger_id=trigger_id, view=build_notice_create_modal(channel_id))
-
-        elif subcommand == "meeting":
-            ack()
-            channel_id = str(body.get("channel_id", ""))
-            client.views_open(trigger_id=trigger_id, view=build_meeting_notice_modal(channel_id))
-
-        else:
-            ack(text=USAGE_TEXT)
+    @app.command("/정기회의")
+    def handle_meeting_notice_command(
+        ack: Ack,
+        body: dict[str, object],
+        client: WebClient,
+    ) -> None:
+        ack()
+        trigger_id = str(body.get("trigger_id", ""))
+        channel_id = str(body.get("channel_id", ""))
+        client.views_open(trigger_id=trigger_id, view=build_meeting_notice_modal(channel_id))
 
     @app.view("notice_create_modal")
     def handle_notice_create_submission(

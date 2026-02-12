@@ -81,4 +81,3 @@ class DoorayService:
         except DoorayApiError as e:
             logger.warning("Failed to list project tags: %s", e)
             raise DoorayServiceError(str(e)) from e
-

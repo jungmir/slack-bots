@@ -5,29 +5,6 @@ from typing import Any
 from src.clients.dooray_client import DoorayMember, DoorayTag, DoorayTask
 
 
-def build_dooray_usage_modal() -> dict[str, Any]:
-    return {
-        "type": "modal",
-        "title": {"type": "plain_text", "text": "두레이 사용법"},
-        "close": {"type": "plain_text", "text": "닫기"},
-        "blocks": [
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": (
-                        "*`/dooray` 사용법:*\n\n"
-                        "• `/dooray me` — 나에게 할당된 업무 목록\n"
-                        "• `/dooray create` — 업무 생성 (모달)\n"
-                        "• `/dooray setup` — Slack↔Dooray 사용자 연결\n"
-                        "• `/dooray setup search <이름>` — Dooray 멤버 검색"
-                    ),
-                },
-            }
-        ],
-    }
-
-
 def build_dooray_task_list_modal(tasks: list[DoorayTask]) -> dict[str, Any]:
     if not tasks:
         blocks: list[dict[str, Any]] = [
@@ -196,7 +173,7 @@ def build_dooray_setup_select_modal(members: list[DoorayMember]) -> dict[str, An
 
     options = [
         {
-            "text": {"type": "plain_text", "text": f"{m.name} ({m.email})"},
+            "text": {"type": "plain_text", "text": f"{m.name} ({m.email})" if m.email else m.name},
             "value": m.id,
         }
         for m in members
@@ -224,40 +201,6 @@ def build_dooray_setup_select_modal(members: list[DoorayMember]) -> dict[str, An
     }
 
 
-def build_dooray_member_search_modal(members: list[DoorayMember]) -> dict[str, Any]:
-    if not members:
-        blocks: list[dict[str, Any]] = [
-            {
-                "type": "section",
-                "text": {"type": "mrkdwn", "text": "검색 결과가 없습니다."},
-            }
-        ]
-    else:
-        blocks = [
-            {
-                "type": "header",
-                "text": {"type": "plain_text", "text": "Dooray 멤버 검색 결과"},
-            }
-        ]
-        for m in members:
-            blocks.append(
-                {
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": f"*{m.name}*\nID: `{m.id}` | {m.email}",
-                    },
-                }
-            )
-
-    return {
-        "type": "modal",
-        "title": {"type": "plain_text", "text": "멤버 검색"},
-        "close": {"type": "plain_text", "text": "닫기"},
-        "blocks": blocks,
-    }
-
-
 def build_dooray_error_modal(message: str) -> dict[str, Any]:
     return build_dooray_result_modal("오류", f"오류가 발생했습니다:\n{message}")
 
@@ -272,7 +215,7 @@ def build_dooray_not_linked_modal() -> dict[str, Any]:
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": ("Dooray 계정이 연결되지 않았습니다.\n\n`/dooray setup`으로 계정을 연결해주세요."),
+                    "text": ("Dooray 계정이 연결되지 않았습니다.\n\n`/두레이연동`으로 계정을 연결해주세요."),
                 },
             }
         ],

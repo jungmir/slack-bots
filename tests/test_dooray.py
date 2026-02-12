@@ -22,13 +22,11 @@ from src.store.dooray_store import DoorayStore
 from src.views.dooray_views import (
     build_dooray_create_task_modal,
     build_dooray_error_modal,
-    build_dooray_member_search_modal,
     build_dooray_not_linked_modal,
     build_dooray_result_modal,
     build_dooray_setup_modal,
     build_dooray_setup_select_modal,
     build_dooray_task_list_modal,
-    build_dooray_usage_modal,
 )
 
 _SAMPLE_MEMBERS = [
@@ -212,7 +210,6 @@ class TestDoorayClient:
         assert tags[0].color == "red"
 
 
-
 # --- DoorayStore Tests ---
 
 
@@ -247,13 +244,6 @@ class TestDoorayStore:
 
 
 class TestDoorayViews:
-    def test_usage_modal(self) -> None:
-        modal = build_dooray_usage_modal()
-        assert modal["type"] == "modal"
-        text = modal["blocks"][0]["text"]["text"]
-        assert "/dooray me" in text
-        assert "/dooray create" in text
-
     def test_task_list_modal_empty(self) -> None:
         modal = build_dooray_task_list_modal([])
         assert modal["type"] == "modal"
@@ -310,18 +300,6 @@ class TestDoorayViews:
         options = modal["blocks"][0]["element"]["options"]
         assert len(options) == 1
         assert options[0]["value"] == "M1"
-
-    def test_member_search_modal_empty(self) -> None:
-        modal = build_dooray_member_search_modal([])
-        assert modal["type"] == "modal"
-        assert "없습니다" in modal["blocks"][0]["text"]["text"]
-
-    def test_member_search_modal_with_results(self) -> None:
-        members = [DoorayMember(id="M1", name="홍길동", email="hong@test.com")]
-        modal = build_dooray_member_search_modal(members)
-        sections = [b for b in modal["blocks"] if b["type"] == "section"]
-        assert len(sections) == 1
-        assert "홍길동" in sections[0]["text"]["text"]
 
     def test_error_modal(self) -> None:
         modal = build_dooray_error_modal("something broke")
@@ -458,30 +436,15 @@ class TestDoorayService:
         assert tags[0].name == "버그"
 
 
-
 # --- DoorayCommands Integration Tests ---
 
 
 class TestDoorayCommands:
-    def test_no_subcommand_opens_usage_modal(self) -> None:
-        app = _create_test_app()
-        with patch("slack_sdk.web.client.WebClient.views_open") as mock_open:
-            request = BoltRequest(
-                body="command=%2Fdooray&text=&user_id=U1234&trigger_id=T123&channel_id=C1234",
-                headers={"content-type": ["application/x-www-form-urlencoded"]},
-            )
-            response = app.dispatch(request)
-            assert response.status == 200
-            mock_open.assert_called_once()
-            view = mock_open.call_args.kwargs["view"]
-            assert view["type"] == "modal"
-            assert "사용법" in view["blocks"][0]["text"]["text"]
-
     def test_me_not_linked_opens_modal(self) -> None:
         app = _create_test_app()
         with patch("slack_sdk.web.client.WebClient.views_open") as mock_open:
             request = BoltRequest(
-                body="command=%2Fdooray&text=me&user_id=U_UNKNOWN&trigger_id=T123&channel_id=C1234",
+                body="command=%2F%EB%82%B4%EC%97%85%EB%AC%B4&text=&user_id=U_UNKNOWN&trigger_id=T123&channel_id=C1234",
                 headers={"content-type": ["application/x-www-form-urlencoded"]},
             )
             response = app.dispatch(request)
@@ -513,7 +476,7 @@ class TestDoorayCommands:
 
         with patch("slack_sdk.web.client.WebClient.views_open") as mock_open:
             request = BoltRequest(
-                body="command=%2Fdooray&text=me&user_id=U1234&trigger_id=T123&channel_id=C1234",
+                body="command=%2F%EB%82%B4%EC%97%85%EB%AC%B4&text=&user_id=U1234&trigger_id=T123&channel_id=C1234",
                 headers={"content-type": ["application/x-www-form-urlencoded"]},
             )
             response = app.dispatch(request)
@@ -528,7 +491,7 @@ class TestDoorayCommands:
         app = _create_test_app()
         with patch("slack_sdk.web.client.WebClient.views_open") as mock_open:
             request = BoltRequest(
-                body="command=%2Fdooray&text=create&user_id=U1234&trigger_id=T123&channel_id=C1234",
+                body="command=%2F%EC%83%88%EC%97%85%EB%AC%B4&text=&user_id=U1234&trigger_id=T123&channel_id=C1234",
                 headers={"content-type": ["application/x-www-form-urlencoded"]},
             )
             response = app.dispatch(request)
@@ -542,7 +505,7 @@ class TestDoorayCommands:
         app = _create_test_app()
         with patch("slack_sdk.web.client.WebClient.views_open") as mock_open:
             request = BoltRequest(
-                body="command=%2Fdooray&text=setup&user_id=U1234&trigger_id=T123&channel_id=C1234",
+                body="command=%2F%EB%91%90%EB%A0%88%EC%9D%B4%EC%97%B0%EB%8F%99&text=&user_id=U1234&trigger_id=T123&channel_id=C1234",
                 headers={"content-type": ["application/x-www-form-urlencoded"]},
             )
             response = app.dispatch(request)
@@ -550,44 +513,6 @@ class TestDoorayCommands:
             mock_open.assert_called_once()
             view = mock_open.call_args.kwargs["view"]
             assert view["callback_id"] == "dooray_setup_modal"
-
-    def test_setup_with_id_registers_and_opens_modal(self) -> None:
-        store = DoorayStore()
-        app = _create_test_app(dooray_store=store)
-        with patch("slack_sdk.web.client.WebClient.views_open") as mock_open:
-            request = BoltRequest(
-                body="command=%2Fdooray&text=setup+M9999&user_id=U1234&trigger_id=T123&channel_id=C1234",
-                headers={"content-type": ["application/x-www-form-urlencoded"]},
-            )
-            response = app.dispatch(request)
-            time.sleep(0.5)
-            assert response.status == 200
-            assert store.get_dooray_member_id("U1234") == "M9999"
-            mock_open.assert_called_once()
-            view = mock_open.call_args.kwargs["view"]
-            assert "M9999" in view["blocks"][0]["text"]["text"]
-
-    def test_setup_search_opens_modal(self) -> None:
-        mock_http = _make_mock_client()
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "result": [{"id": "M1", "name": "홍길동", "email": "hong@example.com"}],
-        }
-        mock_http.request.return_value = mock_response
-        client = DoorayClient("token", http_client=mock_http)
-        app = _create_test_app(dooray_client=client)
-
-        with patch("slack_sdk.web.client.WebClient.views_open") as mock_open:
-            request = BoltRequest(
-                body="command=%2Fdooray&text=setup+search+%ED%99%8D&user_id=U1234&trigger_id=T123&channel_id=C1234",
-                headers={"content-type": ["application/x-www-form-urlencoded"]},
-            )
-            response = app.dispatch(request)
-            assert response.status == 200
-            mock_open.assert_called_once()
-            view = mock_open.call_args.kwargs["view"]
-            assert view["type"] == "modal"
 
 
 class TestDooraySetupFlow:
@@ -847,7 +772,7 @@ class TestDoorayDisabled:
         with patch("slack_sdk.web.client.WebClient.auth_test", return_value=_MOCK_AUTH_RESPONSE):
             app = create_app(settings, request_verification_enabled=False)
         request = BoltRequest(
-            body="command=%2Fdooray&text=me&user_id=U1234&trigger_id=T123&channel_id=C1234",
+            body="command=%2F%EB%82%B4%EC%97%85%EB%AC%B4&text=&user_id=U1234&trigger_id=T123&channel_id=C1234",
             headers={"content-type": ["application/x-www-form-urlencoded"]},
         )
         response = app.dispatch(request)
