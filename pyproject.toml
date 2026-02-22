@@ -10,8 +10,10 @@ authors = [
 dependencies = [
     "httpx>=0.28.0",
     "python-dotenv>=1.2.1",
+    "sentry-sdk>=2.53.0",
     "slack-bolt>=1.21.0",
     "slack-sdk>=3.34.0",
+    "structlog>=25.5.0",
 ]
 
 [dependency-groups]

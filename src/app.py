@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 
 from slack_bolt import App
@@ -13,6 +12,10 @@ from src.commands.dooray import register_dooray_commands
 from src.commands.notice import register_notice_commands
 from src.config import Settings
 from src.events.home import register_home_events
+from src.healthcheck import start_healthcheck_server
+from src.logging_config import setup_logging
+from src.middleware import RequestLoggingMiddleware
+from src.sentry_config import setup_sentry
 from src.store.dooray_store import DoorayStore
 from src.store.notice_store import NoticeStore
 
@@ -28,13 +31,20 @@ def create_app(
     dooray_client: DoorayClient | None = None,
     dooray_store: DoorayStore | None = None,
 ) -> App:
-    logging.basicConfig(level=settings.log_level)
+    setup_logging(log_level=settings.log_level, json_output=settings.log_json)
+    setup_sentry(
+        dsn=settings.sentry_dsn,
+        environment=settings.sentry_environment,
+        traces_sample_rate=settings.sentry_traces_sample_rate,
+    )
 
     app = App(
         token=settings.slack_bot_token,
         signing_secret=settings.slack_signing_secret,
         request_verification_enabled=request_verification_enabled,
     )
+
+    app.use(RequestLoggingMiddleware())
 
     @app.command("/ping")
     def handle_ping(ack: Ack) -> None:
@@ -66,6 +76,7 @@ def create_app(
 def main() -> None:
     settings = Settings.from_env()
     app = create_app(settings)
+    start_healthcheck_server(port=settings.healthcheck_port)
     handler = SocketModeHandler(app, settings.slack_app_token)
     handler.start()  # type: ignore[no-untyped-call]
 

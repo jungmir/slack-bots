@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import logging
+import structlog
 
 from src.clients.dooray_client import DoorayApiError, DoorayClient, DoorayMember, DoorayTag, DoorayTask
 from src.store.dooray_store import DoorayStore
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 
 class UserNotLinkedError(Exception):
@@ -35,7 +35,7 @@ class DoorayService:
         try:
             return self._client.list_my_tasks(member_id, self._default_project_id)
         except DoorayApiError as e:
-            logger.warning("Failed to list tasks for %s: %s", slack_user_id, e)
+            logger.warning("dooray_list_tasks_failed", slack_user_id=slack_user_id, error=str(e))
             raise DoorayServiceError(str(e)) from e
 
     def create_task(
@@ -62,7 +62,7 @@ class DoorayService:
                 due_date=due_date,
             )
         except DoorayApiError as e:
-            logger.warning("Failed to create task: %s", e)
+            logger.warning("dooray_create_task_failed", error=str(e))
             raise DoorayServiceError(str(e)) from e
 
     def setup_user(self, slack_user_id: str, dooray_member_id: str) -> None:
@@ -72,12 +72,12 @@ class DoorayService:
         try:
             return self._client.search_members(name)
         except DoorayApiError as e:
-            logger.warning("Failed to search members: %s", e)
+            logger.warning("dooray_search_members_failed", name=name, error=str(e))
             raise DoorayServiceError(str(e)) from e
 
     def list_project_tags(self) -> list[DoorayTag]:
         try:
             return self._client.list_project_tags(self._default_project_id)
         except DoorayApiError as e:
-            logger.warning("Failed to list project tags: %s", e)
+            logger.warning("dooray_list_tags_failed", error=str(e))
             raise DoorayServiceError(str(e)) from e

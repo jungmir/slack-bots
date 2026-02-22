@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import logging
 import re
 
+import structlog
 from slack_bolt import App
 from slack_bolt.context.ack import Ack
 from slack_sdk.errors import SlackApiError
@@ -16,7 +16,7 @@ from src.views.notice_views import (
     build_notice_create_modal,
 )
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 PAGE_SIZE = 3
 
@@ -42,10 +42,10 @@ def _publish_home_tab(
             page_size=PAGE_SIZE,
             viewer_id=user_id,
         )
-        logger.info("Publishing Home Tab for user %s (offset=%d, total=%d)", user_id, offset, total_count)
+        logger.info("home_tab_publishing", user_id=user_id, offset=offset, total=total_count)
         client.views_publish(user_id=user_id, view=view)
     except SlackApiError:
-        logger.exception("Failed to publish Home Tab for user %s", user_id)
+        logger.exception("home_tab_publish_failed", user_id=user_id)
 
 
 def register_home_events(app: App, store: NoticeStore) -> None:
@@ -59,7 +59,7 @@ def register_home_events(app: App, store: NoticeStore) -> None:
 
         user_id = str(event.get("user", ""))
         if not user_id:
-            logger.warning("app_home_opened event received with empty user_id")
+            logger.warning("app_home_opened_empty_user_id")
             return
 
         _publish_home_tab(client, user_id, store)

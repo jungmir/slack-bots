@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import structlog
 from slack_bolt import App
 from slack_bolt.context.ack import Ack
 from slack_sdk.web import WebClient
@@ -16,6 +17,8 @@ from src.views.dooray_views import (
     build_dooray_setup_select_modal,
     build_dooray_task_list_modal,
 )
+
+logger = structlog.get_logger()
 
 
 def _parse_csv_input(raw: str) -> list[str]:

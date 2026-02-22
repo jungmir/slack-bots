@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 
+import structlog
 from slack_bolt import App
 from slack_bolt.context.ack import Ack
 from slack_sdk.web import WebClient
@@ -20,6 +21,8 @@ from src.views.notice_views import (
     build_notice_status_modal,
     build_remind_exclude_modal,
 )
+
+logger = structlog.get_logger()
 
 
 def _send_feedback(client: WebClient, channel_id: str, user_id: str, text: str) -> None:

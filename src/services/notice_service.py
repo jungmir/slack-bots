@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import logging
 import time
 
+import structlog
 from slack_sdk.errors import SlackApiError
 from slack_sdk.web import WebClient
 
@@ -25,7 +25,7 @@ def _build_message_link(channel_id: str, message_ts: str) -> str:
     return f"https://slack.com/archives/{channel_id}/p{ts_nodot}"
 
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 
 class NoticeService:
@@ -152,7 +152,7 @@ class NoticeService:
                 try:
                     channel_members[notice.channel_id] = self.get_channel_members(notice.channel_id)
                 except SlackApiError:
-                    logger.warning("Failed to get members for channel %s", notice.channel_id)
+                    logger.warning("channel_members_fetch_failed", channel_id=notice.channel_id)
                     channel_members[notice.channel_id] = []
             total = len(channel_members[notice.channel_id])
             if isinstance(notice, MeetingNotice):

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 from typing import Any
 
 import httpx
+import structlog
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 BASE_URL = "https://api.dooray.com"
 
@@ -52,7 +52,7 @@ class DoorayClient:
     def _request(self, method: str, path: str, timeout: float | None = None, **kwargs: Any) -> dict[str, Any]:
         if timeout is not None:
             kwargs["timeout"] = timeout
-        logger.debug("Dooray API %s %s kwargs=%s", method, path, {k: v for k, v in kwargs.items() if k != "headers"})
+        logger.debug("dooray_api_request", method=method, path=path)
         response = self._client.request(method, path, **kwargs)
         if response.status_code >= 400:
             raise DoorayApiError(response.status_code, response.text)
@@ -81,7 +81,7 @@ class DoorayClient:
             items = result.get("contents", [])
         else:
             items = []
-        logger.warning("list_my_tasks raw items (first 2): %s", [(i.get("id"), i.get("number")) for i in items[:2]])
+        logger.debug("dooray_tasks_listed", count=len(items))
         return [self._parse_task(item, project_id) for item in items]
 
     def create_task(
@@ -107,10 +107,10 @@ class DoorayClient:
             if len(due_date) == 10:  # "YYYY-MM-DD" from Slack datepicker
                 due_date = f"{due_date}T23:59:59+09:00"
             payload["dueDate"] = due_date
-        logger.warning("create_task payload: %s", payload)
+        logger.debug("dooray_create_task_request", subject=subject)
         data = self._request("POST", f"/project/v1/projects/{project_id}/posts", json=payload)
         result: dict[str, Any] = data.get("result", {})
-        logger.warning("create_task response result: %s", result)
+        logger.debug("dooray_task_created", task_id=str(result.get("id", "")))
         return DoorayTask(
             id=str(result.get("id", "")),
             project_id=project_id,
