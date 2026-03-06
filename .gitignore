@@ -14,3 +14,20 @@ wheels/
 
 # Data files
 data/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+
+# Ruff / pytest cache
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+
+# Sisyphus drafts
+.sisyphus/

@@ -19,9 +19,6 @@ from src.sentry_config import setup_sentry
 from src.store.dooray_store import DoorayStore
 from src.store.notice_store import NoticeStore
 
-DEFAULT_DB_DIR = Path("data")
-DEFAULT_DB_PATH = DEFAULT_DB_DIR / "notices.db"
-
 
 def create_app(
     settings: Settings,
@@ -37,6 +34,8 @@ def create_app(
         environment=settings.sentry_environment,
         traces_sample_rate=settings.sentry_traces_sample_rate,
     )
+
+    data_dir = Path(settings.data_dir)
 
     app = App(
         token=settings.slack_bot_token,
@@ -56,8 +55,8 @@ def create_app(
         say(text=f"<@{user}> 안녕하세요! 무엇을 도와드릴까요?")
 
     if notice_store is None:
-        DEFAULT_DB_DIR.mkdir(parents=True, exist_ok=True)
-        notice_store = NoticeStore(DEFAULT_DB_PATH)
+        data_dir.mkdir(parents=True, exist_ok=True)
+        notice_store = NoticeStore(data_dir / "notices.db")
 
     register_notice_commands(app, notice_store)
     register_home_events(app, notice_store)
@@ -66,8 +65,8 @@ def create_app(
         if dooray_client is None:
             dooray_client = DoorayClient(settings.dooray_api_token)
         if dooray_store is None:
-            DEFAULT_DB_DIR.mkdir(parents=True, exist_ok=True)
-            dooray_store = DoorayStore(DEFAULT_DB_DIR / "dooray.db")
+            data_dir.mkdir(parents=True, exist_ok=True)
+            dooray_store = DoorayStore(data_dir / "dooray.db")
         register_dooray_commands(app, dooray_client, dooray_store, settings.dooray_project_id)
 
     return app

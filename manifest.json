@@ -22,9 +22,33 @@
         "should_escape": false
       },
       {
-        "command": "/notice",
-        "description": "공지 관리",
-        "usage_hint": "create | meeting | list | status <id> | remind <id> | dashboard",
+        "command": "/공지",
+        "description": "공지 작성",
+        "usage_hint": "",
+        "should_escape": false
+      },
+      {
+        "command": "/정기회의",
+        "description": "정기회의 공지 작성",
+        "usage_hint": "",
+        "should_escape": false
+      },
+      {
+        "command": "/내업무",
+        "description": "Dooray 내 업무 목록 조회",
+        "usage_hint": "",
+        "should_escape": false
+      },
+      {
+        "command": "/새업무",
+        "description": "Dooray 업무 생성",
+        "usage_hint": "",
+        "should_escape": false
+      },
+      {
+        "command": "/두레이연동",
+        "description": "Dooray 계정 연결",
+        "usage_hint": "",
         "should_escape": false
       }
     ]

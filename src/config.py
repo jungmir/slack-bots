@@ -19,6 +19,7 @@ class Settings:
     dooray_api_token: str = ""
     dooray_project_id: str = ""
     healthcheck_port: int = 8080
+    data_dir: str = "data"
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -34,6 +35,7 @@ class Settings:
         dooray_api_token = os.environ.get("DOORAY_API_TOKEN", "")
         dooray_project_id = os.environ.get("DOORAY_PROJECT_ID", "")
         healthcheck_port = int(os.environ.get("HEALTHCHECK_PORT", "8080"))
+        data_dir = os.environ.get("DATA_DIR", "data")
 
         missing: list[str] = []
         if not slack_bot_token:
@@ -59,4 +61,5 @@ class Settings:
             dooray_api_token=dooray_api_token,
             dooray_project_id=dooray_project_id,
             healthcheck_port=healthcheck_port,
+            data_dir=data_dir,
         )
