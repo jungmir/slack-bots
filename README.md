@@ -107,7 +107,37 @@ docker run --env-file .env pycon-slack-bots
 
 ## 배포 (Railway)
 
-Railway Volume을 `DATA_DIR` 경로에 마운트하면 SQLite 데이터가 유지됩니다. 헬스체크는 `HEALTHCHECK_PORT` (기본 8080)의 `/health` 엔드포인트를 사용합니다.
+### 최초 배포
+
+1. [railway.app](https://railway.app) 에서 새 프로젝트 생성
+2. GitHub 저장소 연결
+3. Railway 대시보드에서 환경변수 설정 (`.env.example` 참고)
+4. Volume 추가 → 마운트 경로를 `/app/data`로 설정 (SQLite 데이터 유지)
+
+### 환경변수
+
+Railway 대시보드 Variables 탭에서 아래를 설정합니다:
+
+```
+SLACK_BOT_TOKEN=xoxb-...
+SLACK_APP_TOKEN=xapp-...
+SLACK_SIGNING_SECRET=...
+LOG_JSON=true
+DATA_DIR=/app/data
+```
+
+두레이 연동 시 추가:
+```
+DOORAY_API_TOKEN=...
+DOORAY_PROJECT_ID=...
+```
+
+### 헬스체크
+
+`railway.toml`에 헬스체크가 구성되어 있습니다:
+- **Liveness**: `GET /healthz` → `{"status": "ok", "uptime_seconds": ...}`
+- **Readiness**: `GET /readyz` → `{"status": "ready"}`
+- 포트: `HEALTHCHECK_PORT` (기본 `8080`)
 
 ## 프로젝트 구조
 
