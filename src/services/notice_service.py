@@ -178,8 +178,17 @@ class NoticeService:
         return True
 
     def get_channel_members(self, channel_id: str) -> list[str]:
-        result = self._client.conversations_members(channel=channel_id)
-        return result.get("members", [])
+        channel_result = self._client.conversations_members(channel=channel_id)
+        channel_ids = set(channel_result.get("members", []))
+        if not channel_ids:
+            return []
+
+        users_result = self._client.users_list()
+        return [
+            u["id"]
+            for u in users_result.get("members", [])
+            if u["id"] in channel_ids and not u.get("is_bot") and u.get("id") != "USLACKBOT"
+        ]
 
     def remind_unread_users(self, notice_id: str) -> int:
         notice = self._store.get_notice(notice_id)

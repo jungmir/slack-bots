@@ -6,8 +6,11 @@ from typing import Any
 from src.store.models import AttendanceStatus, MeetingNotice, Notice, NoticeType
 
 
+_KST = datetime.timezone(datetime.timedelta(hours=9))
+
+
 def _format_ts(ts: float, fmt: str = "%Y-%m-%d %H:%M") -> str:
-    return datetime.datetime.fromtimestamp(ts, tz=datetime.UTC).strftime(fmt)
+    return datetime.datetime.fromtimestamp(ts, tz=_KST).strftime(fmt)
 
 
 def build_notice_create_modal(channel_id: str = "") -> dict[str, Any]:

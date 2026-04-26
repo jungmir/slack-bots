@@ -480,9 +480,11 @@ class TestNoticeActions:
 
         with (
             patch("slack_sdk.web.client.WebClient.conversations_members") as mock_members,
+            patch("slack_sdk.web.client.WebClient.users_list") as mock_users_list,
             patch("slack_sdk.web.client.WebClient.views_open") as mock_views_open,
         ):
             mock_members.return_value = {"members": ["U001", "U002"]}
+            mock_users_list.return_value = {"members": [{"id": "U001", "is_bot": False}, {"id": "U002", "is_bot": False}]}
             request = BoltRequest(
                 body=json.dumps(action_payload),
                 headers={"content-type": ["application/json"]},
@@ -519,9 +521,11 @@ class TestNoticeActions:
 
         with (
             patch("slack_sdk.web.client.WebClient.conversations_members") as mock_members,
+            patch("slack_sdk.web.client.WebClient.users_list") as mock_users_list,
             patch("slack_sdk.web.client.WebClient.views_open") as mock_views_open,
         ):
             mock_members.return_value = {"members": ["U001", "U002"]}
+            mock_users_list.return_value = {"members": [{"id": "U001", "is_bot": False}, {"id": "U002", "is_bot": False}]}
             request = BoltRequest(
                 body=json.dumps(action_payload),
                 headers={"content-type": ["application/json"]},
@@ -558,10 +562,12 @@ class TestNoticeActions:
 
         with (
             patch("slack_sdk.web.client.WebClient.conversations_members") as mock_members,
+            patch("slack_sdk.web.client.WebClient.users_list") as mock_users_list,
             patch("slack_sdk.web.client.WebClient.chat_postMessage") as mock_post,
             patch("slack_sdk.web.client.WebClient.chat_postEphemeral") as mock_ephemeral,
         ):
             mock_members.return_value = {"members": ["U001", "U002"]}
+            mock_users_list.return_value = {"members": [{"id": "U001", "is_bot": False}, {"id": "U002", "is_bot": False}]}
             request = BoltRequest(
                 body=json.dumps(action_payload),
                 headers={"content-type": ["application/json"]},
@@ -901,9 +907,11 @@ class TestAppHomeOpened:
 
         with (
             patch("slack_sdk.web.client.WebClient.conversations_members") as mock_members,
+            patch("slack_sdk.web.client.WebClient.users_list") as mock_users_list,
             patch("slack_sdk.web.client.WebClient.views_publish") as mock_publish,
         ):
             mock_members.return_value = {"members": ["U001", "U002"]}
+            mock_users_list.return_value = {"members": [{"id": "U001", "is_bot": False}, {"id": "U002", "is_bot": False}]}
             request = BoltRequest(
                 body=json.dumps(event_payload),
                 headers={"content-type": ["application/json"]},
@@ -969,9 +977,11 @@ class TestHomeTabButtonActions:
 
         with (
             patch("slack_sdk.web.client.WebClient.conversations_members") as mock_members,
+            patch("slack_sdk.web.client.WebClient.users_list") as mock_users_list,
             patch("slack_sdk.web.client.WebClient.views_open") as mock_views_open,
         ):
             mock_members.return_value = {"members": ["U001", "U002"]}
+            mock_users_list.return_value = {"members": [{"id": "U001", "is_bot": False}, {"id": "U002", "is_bot": False}]}
             request = BoltRequest(
                 body=json.dumps(action_payload),
                 headers={"content-type": ["application/json"]},
@@ -1003,9 +1013,11 @@ class TestHomeTabButtonActions:
 
         with (
             patch("slack_sdk.web.client.WebClient.conversations_members") as mock_members,
+            patch("slack_sdk.web.client.WebClient.users_list") as mock_users_list,
             patch("slack_sdk.web.client.WebClient.chat_postMessage") as mock_post,
         ):
             mock_members.return_value = {"members": ["U001", "U002"]}
+            mock_users_list.return_value = {"members": [{"id": "U001", "is_bot": False}, {"id": "U002", "is_bot": False}]}
             request = BoltRequest(
                 body=json.dumps(action_payload),
                 headers={"content-type": ["application/json"]},
