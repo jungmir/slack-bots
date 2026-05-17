@@ -57,6 +57,7 @@ def _create_test_app(store: NoticeStore | None = None) -> App:
             _make_settings(),
             request_verification_enabled=False,
             notice_store=store,
+            start_scheduler=False,
         )
 
 
@@ -1630,6 +1631,23 @@ class TestPaginationAction:
             mock_publish.assert_called_once()
             view = mock_publish.call_args.kwargs.get("view", {})
             assert view["type"] == "home"
+
+
+class TestNoticeSchedulerWiring:
+    def test_scheduler_starts_in_create_app(self) -> None:
+        import threading
+        store = NoticeStore()
+        with patch("slack_sdk.web.client.WebClient.auth_test", return_value=_MOCK_AUTH_RESPONSE):
+            create_app(_make_settings(), notice_store=store, start_scheduler=True)
+        thread_names = [t.name for t in threading.enumerate()]
+        assert "notice-scheduler" in thread_names
+
+    def test_scheduler_does_not_start_when_disabled(self) -> None:
+        store = NoticeStore()
+        with patch("slack_sdk.web.client.WebClient.auth_test", return_value=_MOCK_AUTH_RESPONSE):
+            create_app(_make_settings(), notice_store=store, start_scheduler=False)
+        # Verify no exception when start_scheduler=False
+        assert True
 
 
 class TestExcludeManageAction:

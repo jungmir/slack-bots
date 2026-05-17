@@ -15,7 +15,9 @@ from src.events.home import register_home_events
 from src.healthcheck import start_healthcheck_server
 from src.logging_config import setup_logging
 from src.middleware import RequestLoggingMiddleware
+from src.scheduler import NoticeScheduler
 from src.sentry_config import setup_sentry
+from src.services.notice_service import NoticeService
 from src.store.dooray_store import DoorayStore
 from src.store.notice_store import NoticeStore
 
@@ -27,6 +29,7 @@ def create_app(
     notice_store: NoticeStore | None = None,
     dooray_client: DoorayClient | None = None,
     dooray_store: DoorayStore | None = None,
+    start_scheduler: bool = True,
 ) -> App:
     setup_logging(log_level=settings.log_level, json_output=settings.log_json)
     setup_sentry(
@@ -60,6 +63,10 @@ def create_app(
 
     register_notice_commands(app, notice_store)
     register_home_events(app, notice_store)
+
+    if start_scheduler:
+        service = NoticeService(notice_store, app.client)
+        NoticeScheduler(service).start()
 
     if settings.dooray_api_token and settings.dooray_project_id:
         if dooray_client is None:
