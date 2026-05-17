@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import re
 
 import structlog
@@ -69,21 +70,38 @@ def register_notice_commands(app: App, store: NoticeStore) -> None:
         content = str(values["content_block"]["content_input"].get("value", ""))
         channel_id = str(values["channel_block"]["channel_input"].get("selected_channel", ""))
 
+        schedule_ts_raw = values.get("schedule_block", {}).get("schedule_input", {}).get("selected_date_time")
+        scheduled_at: float | None = float(str(schedule_ts_raw)) if schedule_ts_raw is not None else None
+
         user: dict[str, str] = body.get("user", {})  # type: ignore[assignment]
         author_id = user.get("id", "")
 
         service = NoticeService(store, client)
-        notice = service.create_and_post_notice(
-            title=title,
-            content=content,
-            channel_id=channel_id,
-            author_id=author_id,
-        )
-
-        client.chat_postMessage(
-            channel=author_id,
-            text=f"공지가 등록되었습니다: *{notice.title}* (ID: `{notice.notice_id}`)",
-        )
+        if scheduled_at is not None:
+            notice = service.create_scheduled_notice(
+                title=title,
+                content=content,
+                channel_id=channel_id,
+                author_id=author_id,
+                scheduled_at=scheduled_at,
+            )
+            kst = datetime.timezone(datetime.timedelta(hours=9))
+            send_time = datetime.datetime.fromtimestamp(scheduled_at, tz=kst).strftime("%Y-%m-%d %H:%M KST")
+            client.chat_postMessage(
+                channel=author_id,
+                text=f"공지가 예약되었습니다: *{notice.title}* (발송 예정: {send_time})",
+            )
+        else:
+            notice = service.create_and_post_notice(
+                title=title,
+                content=content,
+                channel_id=channel_id,
+                author_id=author_id,
+            )
+            client.chat_postMessage(
+                channel=author_id,
+                text=f"공지가 등록되었습니다: *{notice.title}* (ID: `{notice.notice_id}`)",
+            )
 
     @app.view("meeting_notice_modal")
     def handle_meeting_notice_submission(
@@ -101,23 +119,42 @@ def register_notice_commands(app: App, store: NoticeStore) -> None:
         agenda = str(values["agenda_block"]["agenda_input"].get("value", ""))
         channel_id = str(values["channel_block"]["channel_input"].get("selected_channel", ""))
 
+        schedule_ts_raw = values.get("schedule_block", {}).get("schedule_input", {}).get("selected_date_time")
+        scheduled_at: float | None = float(str(schedule_ts_raw)) if schedule_ts_raw is not None else None
+
         user: dict[str, str] = body.get("user", {})  # type: ignore[assignment]
         author_id = user.get("id", "")
 
         service = NoticeService(store, client)
-        notice = service.create_and_post_meeting_notice(
-            title=title,
-            channel_id=channel_id,
-            author_id=author_id,
-            meeting_datetime=meeting_datetime,
-            location=location,
-            agenda=agenda,
-        )
-
-        client.chat_postMessage(
-            channel=author_id,
-            text=f"회의 공지가 등록되었습니다: *{notice.title}* (ID: `{notice.notice_id}`)",
-        )
+        if scheduled_at is not None:
+            notice = service.create_scheduled_meeting_notice(
+                title=title,
+                channel_id=channel_id,
+                author_id=author_id,
+                meeting_datetime=meeting_datetime,
+                location=location,
+                agenda=agenda,
+                scheduled_at=scheduled_at,
+            )
+            kst = datetime.timezone(datetime.timedelta(hours=9))
+            send_time = datetime.datetime.fromtimestamp(scheduled_at, tz=kst).strftime("%Y-%m-%d %H:%M KST")
+            client.chat_postMessage(
+                channel=author_id,
+                text=f"회의 공지가 예약되었습니다: *{notice.title}* (발송 예정: {send_time})",
+            )
+        else:
+            notice = service.create_and_post_meeting_notice(
+                title=title,
+                channel_id=channel_id,
+                author_id=author_id,
+                meeting_datetime=meeting_datetime,
+                location=location,
+                agenda=agenda,
+            )
+            client.chat_postMessage(
+                channel=author_id,
+                text=f"회의 공지가 등록되었습니다: *{notice.title}* (ID: `{notice.notice_id}`)",
+            )
 
     @app.action(re.compile(r"^notice_confirm_(.+)$"))
     def handle_notice_confirm(
@@ -416,4 +453,23 @@ def register_notice_commands(app: App, store: NoticeStore) -> None:
             text=f"리마인드 예외 목록이 업데이트되었습니다. ({len(new_set)}명)",
         )
 
+        _publish_home_tab(client, user_id, store)
+
+    @app.action(re.compile(r"^notice_cancel_(.+)$"))
+    def handle_notice_cancel(
+        ack: Ack,
+        body: dict[str, object],
+        client: WebClient,
+    ) -> None:
+        ack()
+        actions: list[dict[str, str]] = body.get("actions", [])  # type: ignore[assignment]
+        action_id = actions[0].get("action_id", "") if actions else ""
+        match = re.match(r"^notice_cancel_(.+)$", action_id)
+        if not match:
+            return
+        notice_id = match.group(1)
+        user: dict[str, str] = body.get("user", {})  # type: ignore[assignment]
+        user_id = user.get("id", "")
+        service = NoticeService(store, client)
+        service.cancel_scheduled_notice(notice_id)
         _publish_home_tab(client, user_id, store)

@@ -1903,3 +1903,150 @@ class TestHomeTabScheduledSection:
         ]
         cancel_action_ids = [e["action_id"] for e in all_elements]
         assert f"notice_cancel_{sn.notice_id}" in cancel_action_ids
+
+
+class TestNoticeScheduledSubmission:
+    def test_notice_create_immediate_when_no_schedule(self) -> None:
+        store = NoticeStore()
+        app = _create_test_app(store)
+
+        view_payload = {
+            "type": "view_submission",
+            "user": {"id": "U1234"},
+            "view": {
+                "type": "modal",
+                "callback_id": "notice_create_modal",
+                "state": {
+                    "values": {
+                        "title_block": {"title_input": {"value": "테스트 제목"}},
+                        "content_block": {"content_input": {"value": "테스트 내용"}},
+                        "channel_block": {"channel_input": {"selected_channel": "C1234"}},
+                        "schedule_block": {"schedule_input": {"selected_date_time": None}},
+                    }
+                },
+                "private_metadata": "",
+            },
+            "token": "test-token",
+            "team": {"id": "T1234"},
+        }
+
+        with patch("slack_sdk.web.client.WebClient.chat_postMessage") as mock_post:
+            mock_post.return_value = {"ts": "1234567890.000001"}
+            request = BoltRequest(
+                body=json.dumps(view_payload),
+                headers={"content-type": ["application/json"]},
+            )
+            response = app.dispatch(request)
+            assert response.status == 200
+            time.sleep(0.5)
+            # Should post to channel and DM to author
+            assert mock_post.call_count >= 1
+            # Check that a post to the channel happened
+            calls_to_channel = [
+                c for c in mock_post.call_args_list
+                if c.kwargs.get("channel") == "C1234"
+            ]
+            assert len(calls_to_channel) >= 1
+            # Check that a DM to author happened with "등록"
+            calls_to_author = [
+                c for c in mock_post.call_args_list
+                if c.kwargs.get("channel") == "U1234"
+            ]
+            assert len(calls_to_author) >= 1
+            assert "등록되었습니다" in calls_to_author[0].kwargs.get("text", "")
+
+    def test_notice_create_scheduled_when_datetime_set(self) -> None:
+        store = NoticeStore()
+        app = _create_test_app(store)
+        future_ts = str(int(time.time() + 3600))
+
+        view_payload = {
+            "type": "view_submission",
+            "user": {"id": "U1234"},
+            "view": {
+                "type": "modal",
+                "callback_id": "notice_create_modal",
+                "state": {
+                    "values": {
+                        "title_block": {"title_input": {"value": "예약 공지"}},
+                        "content_block": {"content_input": {"value": "예약 내용"}},
+                        "channel_block": {"channel_input": {"selected_channel": "C1234"}},
+                        "schedule_block": {"schedule_input": {"selected_date_time": future_ts}},
+                    }
+                },
+                "private_metadata": "",
+            },
+            "token": "test-token",
+            "team": {"id": "T1234"},
+        }
+
+        with (
+            patch("slack_sdk.web.client.WebClient.chat_postMessage") as mock_post,
+            patch("slack_sdk.web.client.WebClient.conversations_members") as mock_members,
+        ):
+            mock_post.return_value = {"ts": "1234567890.000001"}
+            mock_members.return_value = {"members": []}
+            request = BoltRequest(
+                body=json.dumps(view_payload),
+                headers={"content-type": ["application/json"]},
+            )
+            response = app.dispatch(request)
+            assert response.status == 200
+            time.sleep(0.5)
+            # Should NOT post to channel (only to author as DM)
+            calls_to_channel = [
+                c for c in mock_post.call_args_list
+                if c.kwargs.get("channel") == "C1234"
+            ]
+            assert len(calls_to_channel) == 0
+            # Should post DM to author with "예약"
+            calls_to_author = [
+                c for c in mock_post.call_args_list
+                if c.kwargs.get("channel") == "U1234"
+            ]
+            assert len(calls_to_author) >= 1
+            assert "예약되었습니다" in calls_to_author[0].kwargs.get("text", "")
+            # Verify notice is stored with scheduled status
+            notices = store.list_scheduled_notices()
+            assert len(notices) == 1
+            assert notices[0].status == "scheduled"
+
+    def test_notice_cancel_action(self) -> None:
+        store = NoticeStore()
+        future = time.time() + 3600
+        notice = _make_notice(scheduled_at=future, status="scheduled")
+        store.create_notice(notice)
+        app = _create_test_app(store)
+
+        action_payload = {
+            "type": "block_actions",
+            "user": {"id": "U1234"},
+            "actions": [
+                {
+                    "type": "button",
+                    "action_id": f"notice_cancel_{notice.notice_id}",
+                }
+            ],
+            "trigger_id": "T123",
+            "token": "test-token",
+            "team": {"id": "T1234"},
+        }
+
+        with (
+            patch("slack_sdk.web.client.WebClient.views_publish") as mock_publish,
+            patch("slack_sdk.web.client.WebClient.conversations_members") as mock_members,
+        ):
+            mock_members.return_value = {"members": []}
+            request = BoltRequest(
+                body=json.dumps(action_payload),
+                headers={"content-type": ["application/json"]},
+            )
+            response = app.dispatch(request)
+            assert response.status == 200
+            time.sleep(0.5)
+            # Verify notice status is cancelled
+            retrieved = store.get_notice(notice.notice_id)
+            assert retrieved is not None
+            assert retrieved.status == "cancelled"
+            # Verify home tab is republished
+            mock_publish.assert_called_once()

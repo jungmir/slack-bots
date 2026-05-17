@@ -30,6 +30,7 @@ def _publish_home_tab(
     try:
         notices = store.list_notices(limit=PAGE_SIZE, offset=offset)
         total_count = store.count_notices()
+        scheduled = store.list_scheduled_notices()
 
         service = NoticeService(store, client)
         rates = service.compute_response_rates(notices)
@@ -41,6 +42,7 @@ def _publish_home_tab(
             offset=offset,
             page_size=PAGE_SIZE,
             viewer_id=user_id,
+            scheduled_notices=scheduled,
         )
         logger.info("home_tab_publishing", user_id=user_id, offset=offset, total=total_count)
         client.views_publish(user_id=user_id, view=view)
