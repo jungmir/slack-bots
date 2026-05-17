@@ -1445,6 +1445,142 @@ class TestHomeCreateButtons:
         assert view["callback_id"] == "meeting_notice_modal"  # type: ignore[index]
 
 
+class TestNoticeServiceScheduling:
+    def setup_method(self) -> None:
+        self.store = NoticeStore()
+
+    def teardown_method(self) -> None:
+        self.store.close()
+
+    def _make_client(self) -> object:
+        from unittest.mock import MagicMock
+        client = MagicMock()
+        client.chat_postMessage.return_value = {"ts": "1234567890.000001"}
+        return client
+
+    def test_create_scheduled_notice_stores_with_scheduled_status(self) -> None:
+        from src.services.notice_service import NoticeService
+        client = self._make_client()
+        service = NoticeService(self.store, client)  # type: ignore[arg-type]
+        future = time.time() + 3600
+
+        notice = service.create_scheduled_notice(
+            title="예약 공지",
+            content="내용",
+            channel_id="C1",
+            author_id="U1",
+            scheduled_at=future,
+        )
+
+        assert notice.status == "scheduled"
+        assert notice.scheduled_at == future
+        assert notice.message_ts == ""
+        client.chat_postMessage.assert_not_called()
+
+        stored = self.store.get_notice(notice.notice_id)
+        assert stored is not None
+        assert stored.status == "scheduled"
+
+    def test_create_scheduled_meeting_notice_stores_with_scheduled_status(self) -> None:
+        from src.services.notice_service import NoticeService
+        client = self._make_client()
+        service = NoticeService(self.store, client)  # type: ignore[arg-type]
+        future = time.time() + 3600
+
+        notice = service.create_scheduled_meeting_notice(
+            title="예약 회의",
+            channel_id="C1",
+            author_id="U1",
+            meeting_datetime="1234567890",
+            location="A",
+            agenda="안건",
+            scheduled_at=future,
+        )
+
+        assert notice.status == "scheduled"
+        assert notice.scheduled_at == future
+        assert notice.message_ts == ""
+        client.chat_postMessage.assert_not_called()
+
+    def test_cancel_scheduled_notice(self) -> None:
+        from src.services.notice_service import NoticeService
+        client = self._make_client()
+        service = NoticeService(self.store, client)  # type: ignore[arg-type]
+        future = time.time() + 3600
+
+        notice = service.create_scheduled_notice(
+            title="취소할 공지",
+            content="내용",
+            channel_id="C1",
+            author_id="U1",
+            scheduled_at=future,
+        )
+
+        result = service.cancel_scheduled_notice(notice.notice_id)
+        assert result is True
+
+        stored = self.store.get_notice(notice.notice_id)
+        assert stored is not None
+        assert stored.status == "cancelled"
+
+    def test_cancel_scheduled_notice_not_found(self) -> None:
+        from src.services.notice_service import NoticeService
+        client = self._make_client()
+        service = NoticeService(self.store, client)  # type: ignore[arg-type]
+
+        result = service.cancel_scheduled_notice("nonexistent")
+        assert result is False
+
+    def test_dispatch_due_notices_posts_and_activates(self) -> None:
+        from src.services.notice_service import NoticeService
+        client = self._make_client()
+        service = NoticeService(self.store, client)  # type: ignore[arg-type]
+        past = time.time() - 60
+
+        notice = Notice(
+            notice_id="n_due",
+            notice_type=NoticeType.GENERAL,
+            title="발송 공지",
+            content="내용",
+            channel_id="C1",
+            author_id="U1",
+            created_at=time.time(),
+            scheduled_at=past,
+            status="scheduled",
+        )
+        self.store.create_notice(notice)
+
+        dispatched = service.dispatch_due_notices()
+        assert dispatched == 1
+
+        stored = self.store.get_notice("n_due")
+        assert stored is not None
+        assert stored.status == "active"
+        assert stored.message_ts == "1234567890.000001"
+
+    def test_dispatch_due_notices_skips_future(self) -> None:
+        from src.services.notice_service import NoticeService
+        client = self._make_client()
+        service = NoticeService(self.store, client)  # type: ignore[arg-type]
+        future = time.time() + 3600
+
+        notice = Notice(
+            notice_id="n_future",
+            notice_type=NoticeType.GENERAL,
+            title="미래 공지",
+            content="내용",
+            channel_id="C1",
+            author_id="U1",
+            created_at=time.time(),
+            scheduled_at=future,
+            status="scheduled",
+        )
+        self.store.create_notice(notice)
+
+        dispatched = service.dispatch_due_notices()
+        assert dispatched == 0
+
+
 class TestPaginationAction:
     def test_dashboard_page_action(self) -> None:
         store = NoticeStore()

@@ -92,6 +92,82 @@ class NoticeService:
 
         return notice
 
+    def create_scheduled_notice(
+        self,
+        *,
+        title: str,
+        content: str,
+        channel_id: str,
+        author_id: str,
+        scheduled_at: float,
+    ) -> Notice:
+        notice = Notice(
+            notice_id=generate_notice_id(),
+            notice_type=NoticeType.GENERAL,
+            title=title,
+            content=content,
+            channel_id=channel_id,
+            author_id=author_id,
+            created_at=time.time(),
+            scheduled_at=scheduled_at,
+            status="scheduled",
+        )
+        self._store.create_notice(notice)
+        return notice
+
+    def create_scheduled_meeting_notice(
+        self,
+        *,
+        title: str,
+        channel_id: str,
+        author_id: str,
+        meeting_datetime: str,
+        location: str,
+        agenda: str,
+        scheduled_at: float,
+    ) -> MeetingNotice:
+        notice = MeetingNotice(
+            notice_id=generate_notice_id(),
+            notice_type=NoticeType.MEETING,
+            title=title,
+            content=f"회의: {title}",
+            channel_id=channel_id,
+            author_id=author_id,
+            created_at=time.time(),
+            meeting_datetime=meeting_datetime,
+            location=location,
+            agenda=agenda,
+            scheduled_at=scheduled_at,
+            status="scheduled",
+        )
+        self._store.create_meeting_notice(notice)
+        return notice
+
+    def cancel_scheduled_notice(self, notice_id: str) -> bool:
+        notice = self._store.get_notice(notice_id)
+        if notice is None:
+            return False
+        self._store.update_notice_status(notice_id, "cancelled")
+        return True
+
+    def dispatch_due_notices(self) -> int:
+        pending = self._store.list_pending_scheduled()
+        dispatched = 0
+        for notice in pending:
+            try:
+                if isinstance(notice, MeetingNotice):
+                    msg = build_meeting_notice_message(notice)
+                else:
+                    msg = build_notice_message(notice)
+                result = self._client.chat_postMessage(channel=notice.channel_id, **msg)
+                message_ts = result.get("ts", "")
+                self._store.update_message_ts(notice.notice_id, message_ts)
+                self._store.update_notice_status(notice.notice_id, "active")
+                dispatched += 1
+            except Exception:
+                logger.exception("dispatch_notice_failed", notice_id=notice.notice_id)
+        return dispatched
+
     def update_and_repost_notice(
         self,
         notice_id: str,
