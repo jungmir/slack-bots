@@ -237,7 +237,7 @@ class TestNoticeViews:
         modal = build_notice_create_modal()
         assert modal["type"] == "modal"
         assert modal["callback_id"] == "notice_create_modal"
-        assert len(modal["blocks"]) == 3
+        assert len(modal["blocks"]) == 4
         block_ids = [b["block_id"] for b in modal["blocks"]]
         assert "title_block" in block_ids
         assert "content_block" in block_ids
@@ -254,7 +254,7 @@ class TestNoticeViews:
         modal = build_meeting_notice_modal()
         assert modal["type"] == "modal"
         assert modal["callback_id"] == "meeting_notice_modal"
-        assert len(modal["blocks"]) == 5
+        assert len(modal["blocks"]) == 6
         block_ids = [b["block_id"] for b in modal["blocks"]]
         assert "datetime_block" in block_ids
         assert "location_block" in block_ids
@@ -266,6 +266,24 @@ class TestNoticeViews:
         modal = build_meeting_notice_modal(channel_id="C_TEST")
         channel_el = modal["blocks"][4]["element"]
         assert channel_el["initial_channel"] == "C_TEST"
+
+    def test_build_notice_create_modal_has_schedule_block(self) -> None:
+        modal = build_notice_create_modal()
+        block_ids = [b.get("block_id") for b in modal["blocks"]]
+        assert "schedule_block" in block_ids
+        schedule_block = next(b for b in modal["blocks"] if b.get("block_id") == "schedule_block")
+        assert schedule_block["optional"] is True
+        assert schedule_block["element"]["type"] == "datetimepicker"
+        assert schedule_block["element"]["action_id"] == "schedule_input"
+
+    def test_build_meeting_notice_modal_has_schedule_block(self) -> None:
+        modal = build_meeting_notice_modal()
+        block_ids = [b.get("block_id") for b in modal["blocks"]]
+        assert "schedule_block" in block_ids
+        schedule_block = next(b for b in modal["blocks"] if b.get("block_id") == "schedule_block")
+        assert schedule_block["optional"] is True
+        assert schedule_block["element"]["type"] == "datetimepicker"
+        assert schedule_block["element"]["action_id"] == "schedule_input"
 
     def test_build_notice_message(self) -> None:
         notice = _make_notice()

@@ -55,6 +55,17 @@ def build_notice_create_modal(channel_id: str = "") -> dict[str, Any]:
                 "element": channel_element,
                 "label": {"type": "plain_text", "text": "대상 채널"},
             },
+            {
+                "type": "input",
+                "block_id": "schedule_block",
+                "optional": True,
+                "element": {
+                    "type": "datetimepicker",
+                    "action_id": "schedule_input",
+                },
+                "label": {"type": "plain_text", "text": "예약 발송 시각"},
+                "hint": {"type": "plain_text", "text": "비워두면 즉시 발송"},
+            },
         ],
     }
 
@@ -119,6 +130,17 @@ def build_meeting_notice_modal(channel_id: str = "") -> dict[str, Any]:
                 "block_id": "channel_block",
                 "element": channel_element,
                 "label": {"type": "plain_text", "text": "대상 채널"},
+            },
+            {
+                "type": "input",
+                "block_id": "schedule_block",
+                "optional": True,
+                "element": {
+                    "type": "datetimepicker",
+                    "action_id": "schedule_input",
+                },
+                "label": {"type": "plain_text", "text": "예약 발송 시각"},
+                "hint": {"type": "plain_text", "text": "비워두면 즉시 발송"},
             },
         ],
     }
