@@ -116,6 +116,35 @@ class TestNoticeModels:
         notice.set_attendance("U999", AttendanceStatus.ABSENT)
         assert notice.get_attendance("U999") == AttendanceStatus.ABSENT
 
+    def test_notice_has_scheduling_fields(self) -> None:
+        n = Notice(
+            notice_id="n1",
+            notice_type=NoticeType.GENERAL,
+            title="t",
+            content="c",
+            channel_id="C1",
+            author_id="U1",
+            created_at=1.0,
+        )
+        assert n.scheduled_at is None
+        assert n.status == "active"
+
+    def test_meeting_notice_inherits_scheduling_fields(self) -> None:
+        m = MeetingNotice(
+            notice_id="n2",
+            notice_type=NoticeType.MEETING,
+            title="t",
+            content="회의: t",
+            channel_id="C1",
+            author_id="U1",
+            created_at=1.0,
+            meeting_datetime="1234",
+            location="A",
+            agenda="a",
+        )
+        assert m.scheduled_at is None
+        assert m.status == "active"
+
 
 class TestNoticeStore:
     def test_create_and_get_notice(self) -> None:

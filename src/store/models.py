@@ -34,6 +34,8 @@ class Notice:
     created_at: float
     message_ts: str = ""
     read_by: list[str] = field(default_factory=list)
+    scheduled_at: float | None = None
+    status: str = "active"
 
     def is_read_by(self, user_id: str) -> bool:
         return user_id in self.read_by
