@@ -5,7 +5,6 @@ from typing import Any
 
 from src.store.models import AttendanceStatus, MeetingNotice, Notice, NoticeType
 
-
 _KST = datetime.timezone(datetime.timedelta(hours=9))
 
 
@@ -624,8 +623,51 @@ def build_home_tab_view(
     offset: int = 0,
     page_size: int = 5,
     viewer_id: str = "",
+    scheduled_notices: list[Notice | MeetingNotice] | None = None,
 ) -> dict[str, Any]:
-    blocks: list[dict[str, Any]] = [
+    blocks: list[dict[str, Any]] = []
+
+    # Add scheduled notices section if present
+    if scheduled_notices:
+        blocks.append(
+            {
+                "type": "header",
+                "text": {"type": "plain_text", "text": "예약된 공지"},
+            }
+        )
+        for sn in scheduled_notices:
+            scheduled_time = (
+                _format_ts(sn.scheduled_at)
+                if sn.scheduled_at is not None
+                else "(시각 미정)"
+            )
+            blocks.append(
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f"*{sn.title}*\n예약 시각: {scheduled_time}",
+                    },
+                }
+            )
+            blocks.append(
+                {
+                    "type": "actions",
+                    "elements": [
+                        {
+                            "type": "button",
+                            "text": {"type": "plain_text", "text": "취소"},
+                            "style": "danger",
+                            "action_id": f"notice_cancel_{sn.notice_id}",
+                            "value": sn.notice_id,
+                        }
+                    ],
+                }
+            )
+        blocks.append({"type": "divider"})
+
+    # Add existing dashboard blocks
+    blocks.extend([
         {
             "type": "header",
             "text": {"type": "plain_text", "text": "공지 대시보드"},
@@ -652,7 +694,8 @@ def build_home_tab_view(
             ],
         },
         {"type": "divider"},
-    ]
+    ])
+
     blocks.extend(
         _build_dashboard_blocks(
             notices,

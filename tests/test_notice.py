@@ -1860,3 +1860,46 @@ class TestNoticeScheduler:
         assert len(dispatched) >= 1
         assert dispatched[0] == 1
         store.close()
+
+
+class TestHomeTabScheduledSection:
+    def test_home_tab_no_scheduled_section_when_empty(self) -> None:
+        view = build_home_tab_view([], scheduled_notices=[])
+        # No "예약된 공지" header should appear
+        header_texts = [
+            b["text"]["text"]
+            for b in view["blocks"]
+            if b.get("type") == "header"
+        ]
+        assert "예약된 공지" not in header_texts
+
+    def test_home_tab_shows_scheduled_section_when_present(self) -> None:
+        sn = _make_notice()
+        sn.scheduled_at = time.time() + 3600
+        view = build_home_tab_view([], scheduled_notices=[sn])
+        header_texts = [
+            b["text"]["text"]
+            for b in view["blocks"]
+            if b.get("type") == "header"
+        ]
+        assert "예약된 공지" in header_texts
+        # Section with title should exist
+        section_texts = " ".join(
+            b["text"]["text"]
+            for b in view["blocks"]
+            if b.get("type") == "section"
+        )
+        assert sn.title in section_texts
+
+    def test_home_tab_scheduled_shows_cancel_button(self) -> None:
+        sn = _make_notice()
+        sn.scheduled_at = time.time() + 3600
+        view = build_home_tab_view([], scheduled_notices=[sn])
+        all_elements = [
+            e
+            for b in view["blocks"]
+            if b.get("type") == "actions"
+            for e in b.get("elements", [])
+        ]
+        cancel_action_ids = [e["action_id"] for e in all_elements]
+        assert f"notice_cancel_{sn.notice_id}" in cancel_action_ids
