@@ -52,8 +52,9 @@ class NoticeStore:
 
     def create_notice(self, notice: Notice) -> None:
         self._conn.execute(
-            """INSERT INTO notices (id, type, title, content, channel_id, message_ts, author_id, created_at, scheduled_at, status)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            "INSERT INTO notices"
+            " (id, type, title, content, channel_id, message_ts, author_id, created_at, scheduled_at, status)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 notice.notice_id,
                 notice.notice_type.value,
@@ -189,7 +190,8 @@ class NoticeStore:
     ) -> list[Notice | MeetingNotice]:
         if channel_id:
             rows = self._conn.execute(
-                "SELECT id FROM notices WHERE channel_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT ? OFFSET ?",
+                "SELECT id FROM notices WHERE channel_id = ? AND status = 'active'"
+                " ORDER BY created_at DESC LIMIT ? OFFSET ?",
                 (channel_id, limit, offset),
             ).fetchall()
         else:
