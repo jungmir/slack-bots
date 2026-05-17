@@ -1796,3 +1796,49 @@ class TestNoticeStoreScheduling:
         self._make_scheduled_notice("n_count_sched", now + 60)
 
         assert self.store.count_notices() == 1
+
+
+class TestNoticeScheduler:
+    def test_scheduler_dispatches_on_start(self) -> None:
+        import threading
+        import time as time_mod
+        from unittest.mock import MagicMock
+        from src.scheduler import NoticeScheduler
+        from src.services.notice_service import NoticeService
+
+        store = NoticeStore()
+        client = MagicMock()
+        client.chat_postMessage.return_value = {"ts": "1.0"}
+        service = NoticeService(store, client)  # type: ignore[arg-type]
+
+        past = time_mod.time() - 60
+        notice = Notice(
+            notice_id="n_sched",
+            notice_type=NoticeType.GENERAL,
+            title="스케줄러 공지",
+            content="내용",
+            channel_id="C1",
+            author_id="U1",
+            created_at=time_mod.time(),
+            scheduled_at=past,
+            status="scheduled",
+        )
+        store.create_notice(notice)
+
+        dispatched: list[int] = []
+
+        original_dispatch = service.dispatch_due_notices
+        def recording_dispatch() -> int:
+            result = original_dispatch()
+            dispatched.append(result)
+            return result
+
+        service.dispatch_due_notices = recording_dispatch  # type: ignore[method-assign]
+
+        scheduler = NoticeScheduler(service, interval=1)
+        scheduler.start()
+        time_mod.sleep(1.5)
+
+        assert len(dispatched) >= 1
+        assert dispatched[0] == 1
+        store.close()
