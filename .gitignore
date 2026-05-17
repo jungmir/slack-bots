@@ -31,3 +31,6 @@ data/
 
 # Sisyphus drafts
 .sisyphus/
+
+# Git worktrees
+.worktrees/
