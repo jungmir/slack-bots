@@ -12,6 +12,7 @@ class NoticeStore:
         self._conn = sqlite3.connect(str(db_path), check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._create_tables()
+        self._migrate()
 
     def _create_tables(self) -> None:
         self._conn.executescript("""
@@ -41,10 +42,18 @@ class NoticeStore:
             );
         """)
 
+    def _migrate(self) -> None:
+        cols = {row[1] for row in self._conn.execute("PRAGMA table_info(notices)")}
+        if "scheduled_at" not in cols:
+            self._conn.execute("ALTER TABLE notices ADD COLUMN scheduled_at REAL")
+        if "status" not in cols:
+            self._conn.execute("ALTER TABLE notices ADD COLUMN status TEXT NOT NULL DEFAULT 'active'")
+        self._conn.commit()
+
     def create_notice(self, notice: Notice) -> None:
         self._conn.execute(
-            """INSERT INTO notices (id, type, title, content, channel_id, message_ts, author_id, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            """INSERT INTO notices (id, type, title, content, channel_id, message_ts, author_id, created_at, scheduled_at, status)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 notice.notice_id,
                 notice.notice_type.value,
@@ -54,6 +63,8 @@ class NoticeStore:
                 notice.message_ts,
                 notice.author_id,
                 notice.created_at,
+                notice.scheduled_at,
+                notice.status,
             ),
         )
         self._conn.commit()
@@ -62,8 +73,8 @@ class NoticeStore:
         self._conn.execute(
             """INSERT INTO notices
                (id, type, title, content, channel_id, message_ts, author_id, created_at,
-                meeting_datetime, location, agenda)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                meeting_datetime, location, agenda, scheduled_at, status)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 notice.notice_id,
                 notice.notice_type.value,
@@ -76,6 +87,8 @@ class NoticeStore:
                 notice.meeting_datetime,
                 notice.location,
                 notice.agenda,
+                notice.scheduled_at,
+                notice.status,
             ),
         )
         self._conn.commit()
@@ -108,6 +121,13 @@ class NoticeStore:
         )
         self._conn.commit()
 
+    def update_notice_status(self, notice_id: str, status: str) -> None:
+        self._conn.execute(
+            "UPDATE notices SET status = ? WHERE id = ?",
+            (status, notice_id),
+        )
+        self._conn.commit()
+
     def get_notice(self, notice_id: str) -> Notice | MeetingNotice | None:
         row = self._conn.execute("SELECT * FROM notices WHERE id = ?", (notice_id,)).fetchone()
         if row is None:
@@ -119,6 +139,8 @@ class NoticeStore:
         ).fetchall()
 
         notice_type = NoticeType(row["type"])
+        scheduled_at: float | None = row["scheduled_at"]
+        status: str = row["status"] if row["status"] is not None else "active"
 
         if notice_type == NoticeType.MEETING:
             attendance: dict[str, AttendanceStatus] = {}
@@ -139,6 +161,8 @@ class NoticeStore:
                 location=row["location"] or "",
                 agenda=row["agenda"] or "",
                 attendance=attendance,
+                scheduled_at=scheduled_at,
+                status=status,
             )
 
         read_by = [resp["user_id"] for resp in responses if resp["response_type"] == "read"]
@@ -153,6 +177,8 @@ class NoticeStore:
             author_id=row["author_id"],
             created_at=row["created_at"],
             read_by=read_by,
+            scheduled_at=scheduled_at,
+            status=status,
         )
 
     def list_notices(
@@ -163,12 +189,12 @@ class NoticeStore:
     ) -> list[Notice | MeetingNotice]:
         if channel_id:
             rows = self._conn.execute(
-                "SELECT id FROM notices WHERE channel_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
+                "SELECT id FROM notices WHERE channel_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT ? OFFSET ?",
                 (channel_id, limit, offset),
             ).fetchall()
         else:
             rows = self._conn.execute(
-                "SELECT id FROM notices ORDER BY created_at DESC LIMIT ? OFFSET ?",
+                "SELECT id FROM notices WHERE status = 'active' ORDER BY created_at DESC LIMIT ? OFFSET ?",
                 (limit, offset),
             ).fetchall()
 
@@ -182,12 +208,38 @@ class NoticeStore:
     def count_notices(self, channel_id: str | None = None) -> int:
         if channel_id:
             row = self._conn.execute(
-                "SELECT COUNT(*) AS cnt FROM notices WHERE channel_id = ?",
+                "SELECT COUNT(*) AS cnt FROM notices WHERE channel_id = ? AND status = 'active'",
                 (channel_id,),
             ).fetchone()
         else:
-            row = self._conn.execute("SELECT COUNT(*) AS cnt FROM notices").fetchone()
+            row = self._conn.execute(
+                "SELECT COUNT(*) AS cnt FROM notices WHERE status = 'active'"
+            ).fetchone()
         return int(row["cnt"]) if row else 0
+
+    def list_scheduled_notices(self) -> list[Notice | MeetingNotice]:
+        rows = self._conn.execute(
+            "SELECT id FROM notices WHERE status = 'scheduled' ORDER BY scheduled_at ASC"
+        ).fetchall()
+        notices: list[Notice | MeetingNotice] = []
+        for row in rows:
+            notice = self.get_notice(row["id"])
+            if notice is not None:
+                notices.append(notice)
+        return notices
+
+    def list_pending_scheduled(self) -> list[Notice | MeetingNotice]:
+        now = time.time()
+        rows = self._conn.execute(
+            "SELECT id FROM notices WHERE status = 'scheduled' AND scheduled_at <= ? ORDER BY scheduled_at ASC",
+            (now,),
+        ).fetchall()
+        notices: list[Notice | MeetingNotice] = []
+        for row in rows:
+            notice = self.get_notice(row["id"])
+            if notice is not None:
+                notices.append(notice)
+        return notices
 
     def mark_read(self, notice_id: str, user_id: str) -> None:
         self._conn.execute(

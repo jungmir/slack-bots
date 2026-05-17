@@ -1547,3 +1547,116 @@ class TestExcludeManageAction:
             excludes = set(store.list_remind_excludes())
             assert excludes == {"U_NEW1", "U_NEW2"}
             assert "U_OLD" not in excludes
+
+
+class TestNoticeStoreScheduling:
+    def setup_method(self) -> None:
+        self.store = NoticeStore()
+
+    def teardown_method(self) -> None:
+        self.store.close()
+
+    def _make_scheduled_notice(self, notice_id: str, scheduled_at: float) -> Notice:
+        n = Notice(
+            notice_id=notice_id,
+            notice_type=NoticeType.GENERAL,
+            title="예약 공지",
+            content="내용",
+            channel_id="C1",
+            author_id="U1",
+            created_at=1.0,
+            scheduled_at=scheduled_at,
+            status="scheduled",
+        )
+        self.store.create_notice(n)
+        return n
+
+    def test_list_pending_scheduled_returns_due_notices(self) -> None:
+        now = time.time()
+        past = now - 60
+        future = now + 3600
+        self._make_scheduled_notice("n_past", past)
+        self._make_scheduled_notice("n_future", future)
+
+        pending = self.store.list_pending_scheduled()
+
+        assert len(pending) == 1
+        assert pending[0].notice_id == "n_past"
+
+    def test_list_pending_scheduled_excludes_cancelled(self) -> None:
+        now = time.time()
+        n = self._make_scheduled_notice("n_cancelled", now - 60)
+        self.store.update_notice_status(n.notice_id, "cancelled")
+
+        pending = self.store.list_pending_scheduled()
+        assert pending == []
+
+    def test_list_pending_scheduled_excludes_active(self) -> None:
+        now = time.time()
+        n = self._make_scheduled_notice("n_active", now - 60)
+        self.store.update_notice_status(n.notice_id, "active")
+
+        pending = self.store.list_pending_scheduled()
+        assert pending == []
+
+    def test_list_scheduled_notices_returns_all_pending(self) -> None:
+        now = time.time()
+        self._make_scheduled_notice("n1", now + 100)
+        self._make_scheduled_notice("n2", now + 200)
+
+        scheduled = self.store.list_scheduled_notices()
+        ids = [n.notice_id for n in scheduled]
+        assert "n1" in ids
+        assert "n2" in ids
+
+    def test_list_scheduled_notices_excludes_cancelled(self) -> None:
+        now = time.time()
+        n = self._make_scheduled_notice("n_c", now + 100)
+        self.store.update_notice_status(n.notice_id, "cancelled")
+
+        scheduled = self.store.list_scheduled_notices()
+        assert scheduled == []
+
+    def test_update_notice_status(self) -> None:
+        now = time.time()
+        n = self._make_scheduled_notice("n_upd", now + 60)
+        self.store.update_notice_status(n.notice_id, "cancelled")
+
+        retrieved = self.store.get_notice(n.notice_id)
+        assert retrieved is not None
+        assert retrieved.status == "cancelled"
+
+    def test_list_notices_excludes_scheduled_and_cancelled(self) -> None:
+        now = time.time()
+        active = Notice(
+            notice_id="n_active",
+            notice_type=NoticeType.GENERAL,
+            title="활성 공지",
+            content="내용",
+            channel_id="C1",
+            author_id="U1",
+            created_at=now,
+        )
+        self.store.create_notice(active)
+        self._make_scheduled_notice("n_sched", now + 60)
+
+        notices = self.store.list_notices()
+        ids = [n.notice_id for n in notices]
+        assert "n_active" in ids
+        assert "n_sched" not in ids
+
+    def test_count_notices_excludes_scheduled_and_cancelled(self) -> None:
+        now = time.time()
+        active = Notice(
+            notice_id="n_count_active",
+            notice_type=NoticeType.GENERAL,
+            title="활성",
+            content="내용",
+            channel_id="C1",
+            author_id="U1",
+            created_at=now,
+        )
+        self.store.create_notice(active)
+        self._make_scheduled_notice("n_count_sched", now + 60)
+
+        assert self.store.count_notices() == 1
