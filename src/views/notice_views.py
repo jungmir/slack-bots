@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+import json
 from typing import Any
 
 from src.store.models import AttendanceStatus, MeetingNotice, Notice, NoticeType
@@ -10,6 +11,37 @@ _KST = datetime.timezone(datetime.timedelta(hours=9))
 
 def _format_ts(ts: float, fmt: str = "%Y-%m-%d %H:%M") -> str:
     return datetime.datetime.fromtimestamp(ts, tz=_KST).strftime(fmt)
+
+
+def _agenda_initial_value(agenda: str) -> dict[str, Any]:
+    try:
+        data = json.loads(agenda)
+        if isinstance(data, dict) and data.get("type") == "rich_text":
+            return data
+    except (json.JSONDecodeError, TypeError):
+        pass
+    return {
+        "type": "rich_text",
+        "elements": [
+            {
+                "type": "rich_text_section",
+                "elements": [{"type": "text", "text": agenda}] if agenda else [],
+            }
+        ],
+    }
+
+
+def _agenda_blocks(agenda: str) -> list[dict[str, Any]]:
+    try:
+        data = json.loads(agenda)
+        if isinstance(data, dict) and data.get("type") == "rich_text":
+            return [
+                {"type": "section", "text": {"type": "mrkdwn", "text": "*안건:*"}},
+                data,
+            ]
+    except (json.JSONDecodeError, TypeError):
+        pass
+    return [{"type": "section", "text": {"type": "mrkdwn", "text": f"*안건:*\n{agenda}"}}]
 
 
 def build_notice_create_modal(channel_id: str = "") -> dict[str, Any]:
@@ -117,9 +149,8 @@ def build_meeting_notice_modal(channel_id: str = "") -> dict[str, Any]:
                 "type": "input",
                 "block_id": "agenda_block",
                 "element": {
-                    "type": "plain_text_input",
+                    "type": "rich_text_input",
                     "action_id": "agenda_input",
-                    "multiline": True,
                     "placeholder": {"type": "plain_text", "text": "안건을 입력하세요"},
                 },
                 "label": {"type": "plain_text", "text": "안건"},
@@ -206,10 +237,7 @@ def build_meeting_notice_message(notice: MeetingNotice) -> dict[str, Any]:
                     {"type": "mrkdwn", "text": f"*장소:*\n{notice.location}"},
                 ],
             },
-            {
-                "type": "section",
-                "text": {"type": "mrkdwn", "text": f"*안건:*\n{notice.agenda}"},
-            },
+            *_agenda_blocks(notice.agenda),
             {
                 "type": "context",
                 "elements": [
@@ -362,10 +390,7 @@ def build_meeting_status_message(notice: MeetingNotice, members: list[str]) -> d
                 {"type": "mrkdwn", "text": f"*장소:*\n{notice.location}"},
             ],
         },
-        {
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": f"*안건:*\n{notice.agenda}"},
-        },
+        *_agenda_blocks(notice.agenda),
         {
             "type": "context",
             "elements": [
@@ -492,10 +517,9 @@ def build_meeting_notice_edit_modal(notice: MeetingNotice) -> dict[str, Any]:
                 "type": "input",
                 "block_id": "agenda_block",
                 "element": {
-                    "type": "plain_text_input",
+                    "type": "rich_text_input",
                     "action_id": "agenda_input",
-                    "multiline": True,
-                    "initial_value": notice.agenda,
+                    "initial_value": _agenda_initial_value(notice.agenda),
                 },
                 "label": {"type": "plain_text", "text": "안건"},
             },
@@ -641,29 +665,32 @@ def build_home_tab_view(
                 if sn.scheduled_at is not None
                 else "(시각 미정)"
             )
+            is_failed = sn.status == "failed"
+            status_label = ":warning: 발송 실패 — 봇이 채널에 없습니다" if is_failed else f"예약 시각: {scheduled_time}"
             blocks.append(
                 {
                     "type": "section",
                     "text": {
                         "type": "mrkdwn",
-                        "text": f"*{sn.title}*\n예약 시각: {scheduled_time}",
+                        "text": f"*{sn.title}*\n{status_label}",
                     },
                 }
             )
-            blocks.append(
-                {
-                    "type": "actions",
-                    "elements": [
-                        {
-                            "type": "button",
-                            "text": {"type": "plain_text", "text": "취소"},
-                            "style": "danger",
-                            "action_id": f"notice_cancel_{sn.notice_id}",
-                            "value": sn.notice_id,
-                        }
-                    ],
-                }
-            )
+            if not is_failed:
+                blocks.append(
+                    {
+                        "type": "actions",
+                        "elements": [
+                            {
+                                "type": "button",
+                                "text": {"type": "plain_text", "text": "취소"},
+                                "style": "danger",
+                                "action_id": f"notice_cancel_{sn.notice_id}",
+                                "value": sn.notice_id,
+                            }
+                        ],
+                    }
+                )
         blocks.append({"type": "divider"})
 
     # Add existing dashboard blocks

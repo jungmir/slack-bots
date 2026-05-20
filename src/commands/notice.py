@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+import json
 import re
 
 import structlog
@@ -116,7 +117,8 @@ def register_notice_commands(app: App, store: NoticeStore) -> None:
         title = str(values["title_block"]["title_input"].get("value", ""))
         meeting_datetime = str(values["datetime_block"]["datetime_input"].get("selected_date_time", ""))
         location = str(values["location_block"]["location_input"].get("value", ""))
-        agenda = str(values["agenda_block"]["agenda_input"].get("value", ""))
+        agenda_raw = values["agenda_block"]["agenda_input"].get("rich_text_value")
+        agenda = json.dumps(agenda_raw) if agenda_raw else ""
         channel_id = str(values["channel_block"]["channel_input"].get("selected_channel", ""))
 
         schedule_ts_raw = values.get("schedule_block", {}).get("schedule_input", {}).get("selected_date_time")
@@ -354,7 +356,8 @@ def register_notice_commands(app: App, store: NoticeStore) -> None:
         title = str(values["title_block"]["title_input"].get("value", ""))
         meeting_datetime = str(values["datetime_block"]["datetime_input"].get("selected_date_time", ""))
         location = str(values["location_block"]["location_input"].get("value", ""))
-        agenda = str(values["agenda_block"]["agenda_input"].get("value", ""))
+        agenda_raw = values["agenda_block"]["agenda_input"].get("rich_text_value")
+        agenda = json.dumps(agenda_raw) if agenda_raw else ""
 
         service = NoticeService(store, client)
         service.update_and_repost_meeting_notice(private_metadata, title, meeting_datetime, location, agenda)

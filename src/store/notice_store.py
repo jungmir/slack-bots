@@ -221,7 +221,7 @@ class NoticeStore:
 
     def list_scheduled_notices(self) -> list[Notice | MeetingNotice]:
         rows = self._conn.execute(
-            "SELECT id FROM notices WHERE status = 'scheduled' ORDER BY scheduled_at ASC"
+            "SELECT id FROM notices WHERE status IN ('scheduled', 'failed') ORDER BY scheduled_at ASC"
         ).fetchall()
         notices: list[Notice | MeetingNotice] = []
         for row in rows:

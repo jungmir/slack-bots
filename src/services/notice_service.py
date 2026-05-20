@@ -164,6 +164,17 @@ class NoticeService:
                 self._store.update_message_ts(notice.notice_id, message_ts)
                 self._store.update_notice_status(notice.notice_id, "active")
                 dispatched += 1
+            except SlackApiError as e:
+                error_code = e.response.get("error", "")
+                if error_code in {"not_in_channel", "channel_not_found", "is_archived"}:
+                    logger.error(
+                        "dispatch_notice_permanent_failure",
+                        notice_id=notice.notice_id,
+                        error=error_code,
+                    )
+                    self._store.update_notice_status(notice.notice_id, "failed")
+                else:
+                    logger.exception("dispatch_notice_failed", notice_id=notice.notice_id)
             except Exception:
                 logger.exception("dispatch_notice_failed", notice_id=notice.notice_id)
         return dispatched
