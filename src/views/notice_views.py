@@ -253,14 +253,14 @@ def build_meeting_notice_message(notice: MeetingNotice) -> dict[str, Any]:
                 "elements": [
                     {
                         "type": "button",
-                        "text": {"type": "plain_text", "text": "온라인 참석"},
-                        "action_id": f"meeting_attend_online_{notice.notice_id}",
+                        "text": {"type": "plain_text", "text": "오프라인 참석"},
+                        "action_id": f"meeting_attend_offline_{notice.notice_id}",
                         "style": "primary",
                     },
                     {
                         "type": "button",
-                        "text": {"type": "plain_text", "text": "오프라인 참석"},
-                        "action_id": f"meeting_attend_offline_{notice.notice_id}",
+                        "text": {"type": "plain_text", "text": "온라인 참석"},
+                        "action_id": f"meeting_attend_online_{notice.notice_id}",
                     },
                     {
                         "type": "button",
